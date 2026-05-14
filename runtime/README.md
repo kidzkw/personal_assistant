@@ -47,6 +47,8 @@ GET /
 GET /api
 GET /health
 GET /dry-run
+GET /inbox
+POST /inbox/text
 ```
 
 Open the browser dashboard:
@@ -59,4 +61,26 @@ Check the dry run over HTTP:
 
 ```powershell
 curl.exe http://localhost:8080/dry-run
+```
+
+Send a small local-only text item to inbox:
+
+```powershell
+$body = @{
+  title = "Test note"
+  text = "Remember to review this later."
+  sensitivity = "personal"
+} | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri http://localhost:8080/inbox/text `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $body
+```
+
+Inbox items are written to:
+
+```text
+runtime/inbox/text/
 ```

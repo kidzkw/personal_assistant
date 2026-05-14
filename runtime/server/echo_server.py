@@ -3,13 +3,16 @@ from __future__ import annotations
 import json
 import os
 import sys
+import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+from datetime import datetime, timezone
 
 
 RUNTIME_ROOT = Path(os.environ.get("ECHO_RUNTIME_ROOT", Path(__file__).resolve().parents[1])).resolve()
+INBOX_TEXT_ROOT = RUNTIME_ROOT / "inbox" / "text"
 sys.path.insert(0, str(RUNTIME_ROOT))
 
 from lib.dry_run_validator import DryRunValidationError, validate_dry_run  # noqa: E402
@@ -17,6 +20,84 @@ from lib.dry_run_validator import DryRunValidationError, validate_dry_run  # noq
 
 def _json_bytes(payload: dict) -> bytes:
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _make_inbox_id() -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"inbox_text_{stamp}_{uuid.uuid4().hex[:8]}"
+
+
+def _write_text_inbox_item(payload: dict) -> dict:
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        raise ValueError("text is required")
+    if len(text) > 20000:
+        raise ValueError("text is too long; keep one inbox item under 20000 characters")
+
+    sensitivity = str(payload.get("sensitivity", "personal")).strip() or "personal"
+    source_type = str(payload.get("source_type", "manual_note")).strip() or "manual_note"
+    title = str(payload.get("title", "")).strip()
+
+    inbox_id = _make_inbox_id()
+    item = {
+        "inbox_item": {
+            "inbox_id": inbox_id,
+            "created_at": _now_iso(),
+            "source_type": source_type,
+            "input_type": "text",
+            "title": title or None,
+            "text": text,
+            "sensitivity": sensitivity,
+            "sync_permission": "local_only",
+            "review_state": "inbox",
+            "processing_state": "not_processed",
+            "note": "Local-only inbox item. This is not confirmed memory.",
+        }
+    }
+
+    INBOX_TEXT_ROOT.mkdir(parents=True, exist_ok=True)
+    path = INBOX_TEXT_ROOT / f"{inbox_id}.json"
+    path.write_text(json.dumps(item, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        "status": "ok",
+        "message": "INBOX_ITEM_CREATED",
+        "inbox_id": inbox_id,
+        "path": str(path.relative_to(RUNTIME_ROOT)),
+        "review_state": "inbox",
+        "processing_state": "not_processed",
+    }
+
+
+def _list_text_inbox_items(limit: int = 50) -> dict:
+    if not INBOX_TEXT_ROOT.exists():
+        return {"status": "ok", "items": []}
+
+    items = []
+    for path in sorted(INBOX_TEXT_ROOT.glob("*.json"), reverse=True)[:limit]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            item = data.get("inbox_item", {})
+            items.append(
+                {
+                    "inbox_id": item.get("inbox_id"),
+                    "created_at": item.get("created_at"),
+                    "title": item.get("title"),
+                    "source_type": item.get("source_type"),
+                    "sensitivity": item.get("sensitivity"),
+                    "review_state": item.get("review_state"),
+                    "processing_state": item.get("processing_state"),
+                    "preview": str(item.get("text", ""))[:160],
+                    "path": str(path.relative_to(RUNTIME_ROOT)),
+                }
+            )
+        except (OSError, json.JSONDecodeError) as exc:
+            items.append({"path": str(path.relative_to(RUNTIME_ROOT)), "error": str(exc)})
+
+    return {"status": "ok", "items": items}
 
 
 def _home_html() -> bytes:
@@ -128,6 +209,36 @@ def _home_html() -> bytes:
       margin: 14px 0 0;
     }
 
+    label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--text);
+      font: 14px/1.45 var(--sans);
+      padding: 9px 10px;
+    }
+
+    textarea {
+      min-height: 112px;
+      resize: vertical;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
     button, a.button {
       appearance: none;
       border: 1px solid var(--border);
@@ -191,6 +302,7 @@ def _home_html() -> bytes:
       .status-pill { margin-top: 16px; text-align: left; }
       .grid { grid-template-columns: 1fr; }
       dl { grid-template-columns: 1fr; }
+      .field-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -237,6 +349,42 @@ def _home_html() -> bytes:
         <div class="actions">
           <button class="primary" type="button" onclick="runDryRun()">Run Dry Run</button>
           <a class="button" href="/dry-run">Open JSON</a>
+        </div>
+      </section>
+
+      <section class="wide">
+        <h2>Send Text To Inbox</h2>
+        <label for="inbox-title">Title</label>
+        <input id="inbox-title" type="text" placeholder="Optional short title">
+        <div class="field-row">
+          <div>
+            <label for="source-type">Source</label>
+            <select id="source-type">
+              <option value="manual_note">manual_note</option>
+              <option value="local_text">local_text</option>
+              <option value="email_note">email_note</option>
+              <option value="chat_note">chat_note</option>
+            </select>
+          </div>
+          <div>
+            <label for="sensitivity">Sensitivity</label>
+            <select id="sensitivity">
+              <option value="personal">personal</option>
+              <option value="financial">financial</option>
+              <option value="medical">medical</option>
+              <option value="relationship">relationship</option>
+              <option value="account_security">account_security</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 12px;">
+          <label for="inbox-text">Text</label>
+          <textarea id="inbox-text" placeholder="Paste a small local-only note here. It will enter inbox review, not confirmed memory."></textarea>
+        </div>
+        <div class="actions">
+          <button class="primary" type="button" onclick="sendInboxText()">Send To Inbox</button>
+          <button type="button" onclick="loadInbox()">Refresh Inbox</button>
+          <a class="button" href="/inbox">Open Inbox JSON</a>
         </div>
       </section>
 
@@ -295,6 +443,44 @@ def _home_html() -> bytes:
       }
     }
 
+    async function sendInboxText() {
+      const payload = {
+        title: document.getElementById("inbox-title").value,
+        source_type: document.getElementById("source-type").value,
+        sensitivity: document.getElementById("sensitivity").value,
+        text: document.getElementById("inbox-text").value
+      };
+      try {
+        const response = await fetch("/inbox/text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        show(data);
+        if (!response.ok) throw new Error(data.error || data.message || response.statusText);
+        document.getElementById("inbox-text").value = "";
+        statusEl.textContent = "Inbox Saved";
+        statusEl.className = "ok";
+      } catch (error) {
+        statusEl.textContent = "Inbox Failed";
+        statusEl.className = "error";
+        output.textContent = String(error);
+      }
+    }
+
+    async function loadInbox() {
+      try {
+        const data = await requestJson("/inbox");
+        statusEl.textContent = "Inbox Loaded";
+        statusEl.className = "ok";
+      } catch (error) {
+        statusEl.textContent = "Inbox Failed";
+        statusEl.className = "error";
+        output.textContent = String(error);
+      }
+    }
+
     loadHealth();
   </script>
 </body>
@@ -304,6 +490,32 @@ def _home_html() -> bytes:
 
 class EchoRequestHandler(BaseHTTPRequestHandler):
     server_version = "EchoRuntime/0.1"
+
+    def do_POST(self) -> None:
+        route = urlparse(self.path).path.rstrip("/") or "/"
+
+        if route == "/inbox/text":
+            try:
+                payload = self._read_json_body(max_bytes=25000)
+                result = _write_text_inbox_item(payload)
+            except ValueError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"status": "error", "message": "INVALID_INBOX_ITEM", "error": str(exc)})
+                return
+            except OSError as exc:
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "INBOX_WRITE_FAILED", "error": str(exc)})
+                return
+
+            self._send_json(HTTPStatus.CREATED, result)
+            return
+
+        self._send_json(
+            HTTPStatus.NOT_FOUND,
+            {
+                "status": "error",
+                "message": "Not found",
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
+            },
+        )
 
     def do_GET(self) -> None:
         route = urlparse(self.path).path.rstrip("/") or "/"
@@ -318,7 +530,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
                 {
                     "service": "echo-personal-assistant",
                     "mode": "local-docker-dry-run",
-                    "endpoints": ["/health", "/dry-run"],
+                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
                 },
             )
             return
@@ -351,12 +563,16 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, result)
             return
 
+        if route == "/inbox":
+            self._send_json(HTTPStatus.OK, _list_text_inbox_items())
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
             },
         )
 
@@ -370,6 +586,21 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _read_json_body(self, max_bytes: int) -> dict:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0:
+            raise ValueError("request body is required")
+        if length > max_bytes:
+            raise ValueError(f"request body is too large; max {max_bytes} bytes")
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid JSON: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("JSON body must be an object")
+        return payload
 
     def _send_html(self, status: HTTPStatus, body: bytes) -> None:
         self.send_response(status)

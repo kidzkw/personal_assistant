@@ -66,6 +66,30 @@ Or open the browser dashboard:
 http://localhost:8080/
 ```
 
+To send a small local-only note into Echo, use the dashboard's "Send Text To Inbox" form. The item is saved under `runtime/inbox/text/` and remains `review_state=inbox`; it is not confirmed memory.
+
+API example:
+
+```powershell
+$body = @{
+  title = "Test note"
+  text = "Remember to review the fake bill workflow."
+  sensitivity = "personal"
+} | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri http://localhost:8080/inbox/text `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $body
+```
+
+List received inbox items:
+
+```powershell
+curl.exe http://localhost:8080/inbox
+```
+
 Expected `/dry-run` response includes:
 
 ```json
@@ -235,6 +259,7 @@ Done:
 - PS agent work log example
 - dry-run validation script
 - minimal Docker server with `/health` and `/dry-run`
+- local text inbox endpoint with `POST /inbox/text`
 
 Not done:
 

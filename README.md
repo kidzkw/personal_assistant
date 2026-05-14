@@ -30,6 +30,22 @@ Browser dashboard / 浏览器面板:
 http://localhost:8080/
 ```
 
+Send a local-only note / 发送本地文本到 inbox:
+
+```powershell
+$body = @{
+  title = "Test note"
+  text = "Remember to review this later."
+  sensitivity = "personal"
+} | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri http://localhost:8080/inbox/text `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $body
+```
+
 Expected output / 预期输出:
 
 ```text

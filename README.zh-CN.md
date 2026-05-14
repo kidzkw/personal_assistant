@@ -66,6 +66,30 @@ curl.exe http://localhost:8080/dry-run
 http://localhost:8080/
 ```
 
+要把一小段信息发给 Echo，可以用 dashboard 里的 "Send Text To Inbox" 表单。它会写入 `runtime/inbox/text/`，状态保持为 `review_state=inbox`；这还不是 confirmed memory。
+
+API 示例：
+
+```powershell
+$body = @{
+  title = "Test note"
+  text = "Remember to review the fake bill workflow."
+  sensitivity = "personal"
+} | ConvertTo-Json -Compress
+
+Invoke-RestMethod `
+  -Uri http://localhost:8080/inbox/text `
+  -Method Post `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $body
+```
+
+列出收到的 inbox items：
+
+```powershell
+curl.exe http://localhost:8080/inbox
+```
+
 `/dry-run` 的预期响应包含：
 
 ```json
@@ -236,10 +260,11 @@ git status -sb
 - PS agent work log 示例
 - dry-run validation script
 - 带 `/health` 和 `/dry-run` 的最小 Docker server
+- `POST /inbox/text` 本地文本 inbox endpoint
 
 未完成：
 
-- 真实 inbox ingestion
+- 文件 / 邮件 / 图片等真实 inbox ingestion
 - 创建 packet 的 CLI
 - SQLite index
 - OCR

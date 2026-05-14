@@ -9,6 +9,8 @@ services:
     environment:
       ECHO_HOST: 0.0.0.0
       ECHO_PORT: 8080
+    volumes:
+      - ./runtime/inbox:/app/runtime/inbox
     read_only: true
     tmpfs:
       - /tmp
