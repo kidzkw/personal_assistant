@@ -1,0 +1,11 @@
+{
+  "proposal_result": {
+    "proposal_run_id": "proposal_fake_001",
+    "work_log_id": "pswl_fake_finance_001",
+    "processing_result_ref": "working/agent_work_log/processing_result_fake_001.json",
+    "audit_result_ref": "working/agent_work_log/audit_result_fake_001.json",
+    "final_output_type": "update_proposal",
+    "final_output_ref": "working/review_queue/candidate_bill_fake_001.json",
+    "recommended_next_step": "human_review_before_confirmed_finance_record"
+  }
+}

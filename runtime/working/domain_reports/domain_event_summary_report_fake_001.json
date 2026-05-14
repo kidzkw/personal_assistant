@@ -1,0 +1,17 @@
+{
+  "domain_event_summary_report": {
+    "report_id": "domain_report_fake_finance_001",
+    "secretary_agent": "finance_xiaomi",
+    "work_log_id": "pswl_fake_finance_001",
+    "processing_result_ref": "working/agent_work_log/processing_result_fake_001.json",
+    "audit_result_ref": "working/agent_work_log/audit_result_fake_001.json",
+    "proposal_result_ref": "working/agent_work_log/proposal_result_fake_001.json",
+    "final_recommendation": "needs_human_review",
+    "risk_level": "high",
+    "unresolved_questions": [],
+    "next_spawn_request": {
+      "requested": false,
+      "reason": "Wait for human review before creating confirmed finance_record."
+    }
+  }
+}

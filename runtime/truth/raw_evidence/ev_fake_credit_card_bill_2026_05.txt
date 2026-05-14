@@ -1,0 +1,11 @@
+FAKE CREDIT CARD BILL
+
+This is not real financial data.
+
+Issuer: Fake Bank
+Statement month: 2026-05
+Amount due: 1234.56 USD
+Due date: 2026-06-05
+Minimum payment: 50.00 USD
+
+Use this file only for personal database dry-run deployment testing.

@@ -1,0 +1,25 @@
+{
+  "processing_result": {
+    "processing_run_id": "processing_fake_001",
+    "work_log_id": "pswl_fake_finance_001",
+    "evidence_packet_ref": "ep_fake_bill_001",
+    "output_type": "extracted_candidate",
+    "structured_output_ref": "working/review_queue/candidate_bill_fake_001.json",
+    "citation_refs": [
+      {
+        "evidence_ref": "ep_fake_bill_001",
+        "artifact_ref": "truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt",
+        "locator": "lines 5-8",
+        "extraction_method": "manual_dry_run",
+        "confidence": "high"
+      }
+    ],
+    "confidence": "high",
+    "processor_baton": {
+      "what_was_checked": "Issuer, amount due, due date, and minimum payment in the fake evidence packet.",
+      "open_questions": [],
+      "stop_reason": "single_packet_complete"
+    },
+    "recommended_next_step": "audit_result"
+  }
+}

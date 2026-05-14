@@ -1,0 +1,19 @@
+{
+  "audit_result": {
+    "audit_run_id": "audit_fake_001",
+    "work_log_id": "pswl_fake_finance_001",
+    "processing_run_id": "processing_fake_001",
+    "checked_citation_refs": [
+      "truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt#lines-5-8"
+    ],
+    "evidence_sufficient": true,
+    "citation_valid": true,
+    "contradiction_found": false,
+    "scope_violation": false,
+    "audit_decision": "human_review",
+    "risk_flags": [
+      "financial",
+      "dry_run_fake_data"
+    ]
+  }
+}

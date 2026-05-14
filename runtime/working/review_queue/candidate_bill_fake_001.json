@@ -1,0 +1,31 @@
+{
+  "candidate_item": {
+    "candidate_id": "candidate_bill_fake_001",
+    "candidate_type": "bill_candidate",
+    "summary": "Fake Bank credit card bill for May 2026 appears to have 1234.56 USD due on 2026-06-05.",
+    "extracted_values": {
+      "merchant_or_org": "Fake Bank",
+      "amount_due": 1234.56,
+      "currency": "USD",
+      "due_at": "2026-06-05",
+      "minimum_payment": 50.0
+    },
+    "confidence": "high",
+    "evidence_refs": [
+      "ep_fake_bill_001"
+    ],
+    "citation_refs": [
+      {
+        "evidence_ref": "ep_fake_bill_001",
+        "artifact_ref": "truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt",
+        "locator": "lines 5-8",
+        "excerpt": "Amount due: 1234.56 USD; Due date: 2026-06-05",
+        "extraction_method": "manual_dry_run",
+        "confidence": "high"
+      }
+    ],
+    "review_state": "candidate",
+    "sensitivity": "financial",
+    "sync_permission": "local_only"
+  }
+}

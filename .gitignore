@@ -1,0 +1,23 @@
+# Local-only real data should never be committed.
+runtime/local/
+runtime/private/
+runtime/inbox/
+
+# Generated caches are rebuildable.
+runtime/cache/ocr/*
+runtime/cache/fts/*
+!runtime/cache/ocr/.gitkeep
+!runtime/cache/fts/.gitkeep
+
+# Common local clutter.
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Python / Node future scaffolds.
+__pycache__/
+.venv/
+node_modules/
+.env
+.env.*
