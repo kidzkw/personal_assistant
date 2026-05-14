@@ -1,6 +1,6 @@
-﻿# Echo Personal Assistant / Personal Memory Database
+# Echo Personal Assistant / Personal Memory Database
 
-A local-first personal memory database experiment. The current goal is not to launch a cloud service or a complex multi-agent platform. The goal is to make the smallest inspectable loop work first:
+Echo is a local-first personal assistant and personal memory database experiment. The current goal is not to launch a cloud service or a complex multi-agent platform. The goal is to make the smallest inspectable loop work first:
 
 ```text
 evidence -> sidecar -> candidate -> audit -> proposal -> review -> work log
@@ -92,10 +92,10 @@ For now, creating another fake packet means manually copying the JSON shape. The
 The current agent flow is serial. Short-lived agents do not run independently or write durable truth.
 
 ```text
-orchestrator / æ€»ç®¡
-  -> assigns work item to secretary agent / å°ç§˜
+orchestrator / 总管
+  -> assigns work item to secretary agent / 小秘
 
-secretary_agent / å°ç§˜
+secretary_agent / 小秘
   -> starts one active processing/audit/proposal chain
 
 processing_agent
@@ -110,11 +110,11 @@ proposal_agent
   -> generates review_result / update_proposal / no_action
   -> returns proposal_result
 
-secretary_agent / å°ç§˜
+secretary_agent / 小秘
   -> creates domain_event_summary_report
-  -> reports back to orchestrator / æ€»ç®¡
+  -> reports back to orchestrator / 总管
 
-orchestrator / æ€»ç®¡
+orchestrator / 总管
   -> updates ps_agent_work_log
   -> decides next_spawn_allowed
 ```
@@ -132,7 +132,7 @@ Important boundaries:
 
 ```text
 docs/
-  Echo information-processing analysis and external-system references
+  Echo information-processing design notes and reference material
 
 information-processing/
   personal memory workflow, candidate proposals, and research notes
@@ -320,5 +320,3 @@ runtime/inbox/
 ```
 
 Use those folders later for real local experiments, but keep them out of GitHub.
-
-

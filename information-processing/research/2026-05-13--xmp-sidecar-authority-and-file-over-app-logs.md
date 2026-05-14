@@ -1,148 +1,146 @@
-﻿# 2026-05-13 ç…§ç‰‡ XMP sidecar çš„â€œå­—æ®µæƒå¨/åˆå¹¶è¯­ä¹‰â€ä¸Ž File-over-App å˜æ›´æ—¥å¿—ï¼ˆGitHub/Redditï¼‰
+# 2026-05-13 照片 XMP sidecar 的“字段权威/合并语义”与 File-over-App 变更日志（GitHub/Reddit）
 
-ç›®æ ‡ï¼šåœ¨ä¸å†™åº”ç”¨ä»£ç çš„å‰æä¸‹ï¼Œè¡¥å¼ºâ€œlocal-first + file-first inbox + ä¿ç•™åŽŸå§‹è¯æ®â€çš„é•¿æœŸ IAï¼šæŠŠ**å…ƒæ•°æ®å†²çª/åˆå¹¶**ä¸Ž**å®¡è®¡/åŒæ­¥ï¼ˆæœªæ¥ï¼‰**è¿™ä¸¤ä¸ªå®¹æ˜“åœ¨ 5+ å¹´é‡Œå¤±æŽ§çš„ç‚¹å…ˆæ–‡æ¡£åŒ–ã€‚
+目标：在不写应用代码的前提下，补强“local-first + file-first inbox + 保留原始证据”的长期 IA：把**元数据冲突/合并**与**审计/同步（未来）**这两个容易在 5+ 年里失控的点先文档化。
 
-## 0. æœ¬åœ°çŽ°çŠ¶å¯¹é½ï¼ˆæœ¬ä»“åº“ï¼‰
+## 0. 本地现状对齐（本仓库）
 
-å·²ç¡®ç«‹çš„ä¸»æ–¹å‘ï¼ˆæ¥è‡ªæœ¬ä»“åº“ `information-processing/*` ä¸Ž `docs/echo-information-processing-design.md`ï¼‰ï¼š
+已确立的主方向（来自本仓库 `information-processing/*` 与 `docs/echo-information-processing-design.md`）：
 
-- ä¸‰å±‚åˆ†ç¦»ï¼š**è¯æ®å±‚ï¼ˆEvidenceï¼‰â†’ ç†è§£å±‚ï¼ˆUnderstandingï¼‰â†’ è¡ŒåŠ¨/æ£€ç´¢å±‚ï¼ˆAction & Retrievalï¼‰**
-- ç»Ÿä¸€æ ‡ç­¾å‘é‡ï¼ˆdomain/source/media/semantic/...ï¼‰+ `review_state=inbox` å®¡é˜…é—¨
-- â€œè¯æ®å±‚ä¸å¯å˜ + sidecar å…ƒæ•°æ®ä¸€ç­‰å…¬æ°‘â€ï¼ˆç…§ç‰‡ä¼˜å…ˆ XMPï¼Œå…¶å®ƒ `*.meta.json`ï¼‰
+- 三层分离：**证据层（Evidence）→ 理解层（Understanding）→ 行动/检索层（Action & Retrieval）**
+- 统一标签向量（domain/source/media/semantic/...）+ `review_state=inbox` 审阅门
+- “证据层不可变 + sidecar 元数据一等公民”（照片优先 XMP，其它 `*.meta.json`）
 
-æœ¬æ¬¡ç ”ç©¶é‡ç‚¹ä¸æ˜¯æ‰©å±•é¢†åŸŸæ¸…å•ï¼Œè€Œæ˜¯æŠŠ **â€œè°æ˜¯å­—æ®µçœŸç›¸ï¼ˆauthorityï¼‰â€** ä¸Ž **â€œå¤šæ¥æºå¦‚ä½•åˆå¹¶ï¼ˆmerge policyï¼‰â€** å†™æ¸…æ¥šï¼Œä»¥é¿å…æœªæ¥å¯¼å…¥/ç¼–è¾‘/åŒæ­¥æ—¶å‡ºçŽ°ä¸å¯è§£é‡Šçš„è¦†ç›–ã€‚
+本次研究重点不是扩展领域清单，而是把 **“谁是字段真相（authority）”** 与 **“多来源如何合并（merge policy）”** 写清楚，以避免未来导入/编辑/同步时出现不可解释的覆盖。
 
-## 1. å…³é”®å¤–éƒ¨æ¥æºï¼ˆæœ¬æ¬¡æ–°å¢ž/åŠ æ·±ï¼‰
+## 1. 关键外部来源（本次新增/加深）
 
-### 1.1 PhotoPrismï¼šXMP çš„ä¸¤æ¡è§£æžè·¯å¾„ä¸Ž sidecar è¯»æ³•é™åˆ¶ï¼ˆå¼ºä¿¡å·ï¼‰
+### 1.1 PhotoPrism：XMP 的两条解析路径与 sidecar 读法限制（强信号）
 
-- PhotoPrismã€ŒAdobe XMPã€ï¼ˆ2026-04-27 æ›´æ–°ï¼‰ï¼šhttps://docs.photoprism.app/developer-guide/metadata/xmp/
-  - é‡ç‚¹ï¼š**embedded XMP èµ° ExifToolï¼ˆä¸»è·¯å¾„ï¼‰** vs **`.xmp` sidecar èµ°å†…ç½® readerï¼ˆPoCï¼‰**ï¼›ä¸¤æ¡è·¯å¾„è¦†ç›–å­—æ®µä¸Ž fallback æœºåˆ¶ä¸åŒã€‚
+- PhotoPrism「Adobe XMP」（2026-04-27 更新）：https://docs.photoprism.app/developer-guide/metadata/xmp/
+  - 重点：**embedded XMP 走 ExifTool（主路径）** vs **`.xmp` sidecar 走内置 reader（PoC）**；两条路径覆盖字段与 fallback 机制不同。
 
-### 1.2 Immichï¼šsidecar å†™å›žæ˜¯â€œåˆå¹¶â€è€Œéžâ€œæ•´æ–‡ä»¶æ›¿æ¢â€
+### 1.2 Immich：sidecar 写回是“合并”而非“整文件替换”
 
-- Immichã€ŒXMP Sidecarsã€ï¼šhttps://docs.immich.app/features/xmp-sidecars/
-  - é‡ç‚¹ï¼šå†™å›žä¼šä¸Žå·²æœ‰å­—æ®µåˆå¹¶ï¼›å¯¹æ—¥æœŸ/æ ‡ç­¾ç­‰å­—æ®µæœ‰**ä¼˜å…ˆçº§é¡ºåº**ï¼›å‘½åè§„åˆ™ï¼ˆ`IMG_0001.jpg.xmp` ä¼˜å…ˆï¼‰ï¼›DISCOVER/SYNC ä½œä¸šï¼›å¤–éƒ¨åº“åªè¯»æ—¶å†™å›žå¯èƒ½å¤±è´¥ã€‚
+- Immich「XMP Sidecars」：https://docs.immich.app/features/xmp-sidecars/
+  - 重点：写回会与已有字段合并；对日期/标签等字段有**优先级顺序**；命名规则（`IMG_0001.jpg.xmp` 优先）；DISCOVER/SYNC 作业；外部库只读时写回可能失败。
 
-### 1.3 Receipts Space / Receipts Appï¼šæ–‡ä»¶æ ¼å¼å…ˆè¡Œçš„â€œå˜æ›´æ—¥å¿— + èµ„äº§å¼•ç”¨â€è®¾è®¡
+### 1.3 Receipts Space / Receipts App：文件格式先行的“变更日志 + 资产引用”设计
 
-- Receipts Space æ–‡æ¡£ï¼ˆç®€ç‰ˆï¼‰ï¼šhttps://receipts-space.com/en/docs
-- Receipts App æ–‡æ¡£ï¼ˆè¯¦ç‰ˆï¼Œå«é“¾å¼æ ¡éªŒ/å¯é€‰åŠ å¯†ï¼‰ï¼šhttps://receipts-app.com/en/docs
-  - é‡ç‚¹ï¼š`info.json` + `transactions/`ï¼ˆappend-only JSON/JSONL logï¼‰+ `assets/`ï¼ˆäºŒè¿›åˆ¶é™„ä»¶ï¼‰ï¼›ç”¨ `_v`ï¼ˆLamport clockï¼‰åš LWWï¼›å¯é€‰ `p` é“¾å¼å“ˆå¸Œä¿è¯ç¯¡æ”¹å¯æ£€ï¼›èµ„äº§ä»¥ `asset:///...?...` URL å½¢å¼æºå¸¦ checksum/size/mime/nameã€‚
+- Receipts Space 文档（简版）：https://receipts-space.com/en/docs
+- Receipts App 文档（详版，含链式校验/可选加密）：https://receipts-app.com/en/docs
+  - 重点：`info.json` + `transactions/`（append-only JSON/JSONL log）+ `assets/`（二进制附件）；用 `_v`（Lamport clock）做 LWW；可选 `p` 链式哈希保证篡改可检；资产以 `asset:///...?...` URL 形式携带 checksum/size/mime/name。
 
-### 1.4 Redditï¼šè¶…å¤§â€œäººç”Ÿæ ¹ç›®å½• + Obsidian vaultâ€å®žè·µçš„è¸©å‘ç‚¹
+### 1.4 Reddit：超大“人生根目录 + Obsidian vault”实践的踩坑点
 
-- r/ObsidianMDï¼ˆJohnny Decimal + 1TB æ ¹ç›®å½• vaultï¼‰ï¼šhttps://www.reddit.com/r/ObsidianMD/comments/1hydhgz/
-  - é‡ç‚¹ï¼š**ç¬”è®°/ç´¢å¼•**ï¼ˆé«˜é¢‘å˜æ›´ï¼‰æ›´é€‚åˆè¿› Gitï¼›å¤§ä½“é‡äºŒè¿›åˆ¶è¯æ®ä¸é€‚åˆè¿› Gitï¼›å»ºè®®æŠŠä¸¤ç±»ä¸œè¥¿ç‰©ç†åˆ†ç¦»ã€‚
+- r/ObsidianMD（Johnny Decimal + 1TB 根目录 vault）：https://www.reddit.com/r/ObsidianMD/comments/1hydhgz/
+  - 重点：**笔记/索引**（高频变更）更适合进 Git；大体量二进制证据不适合进 Git；建议把两类东西物理分离。
 
-### 1.5 Redditï¼šImmich / Paperless-ngx / Nextcloud â€œåŒä¸€åº•å±‚å­˜å‚¨ï¼Œå¤šåº”ç”¨è§†å›¾â€å¸¸è§ç»„åˆ
+### 1.5 Reddit：Immich / Paperless-ngx / Nextcloud “同一底层存储，多应用视图”常见组合
 
-- r/selfhostedï¼šNextcloud + Immich + Paperless-ngxï¼šhttps://www.reddit.com/r/selfhosted/comments/1lm0rex/nextcloud_immich_paperlessngx/
-- r/selfhostedï¼šâ€œImmich for documents?â€ï¼ˆå¤§é‡è®¨è®º tags vs foldersã€OCRã€è½ç›˜ç­–ç•¥ï¼‰ï¼šhttps://www.reddit.com/r/selfhosted/comments/1sdx0jn/is_there_an_immich_for_documents/
+- r/selfhosted：Nextcloud + Immich + Paperless-ngx：https://www.reddit.com/r/selfhosted/comments/1lm0rex/nextcloud_immich_paperlessngx/
+- r/selfhosted：“Immich for documents?”（大量讨论 tags vs folders、OCR、落盘策略）：https://www.reddit.com/r/selfhosted/comments/1sdx0jn/is_there_an_immich_for_documents/
 
-## 2. æœ¬æ¬¡å‘çŽ°çš„â€œå¯è½åœ°æ¨¡å¼â€
+## 2. 本次发现的“可落地模式”
 
-### 2.1 ç…§ç‰‡/åª’ä½“ï¼šå¿…é¡»æ˜¾å¼åŒºåˆ†å­—æ®µçš„ **æ¥æºï¼ˆoriginï¼‰**ã€**æƒå¨ï¼ˆauthorityï¼‰**ã€**åˆå¹¶ç­–ç•¥ï¼ˆmerge policyï¼‰**
+### 2.1 照片/媒体：必须显式区分字段的 **来源（origin）**、**权威（authority）**、**合并策略（merge policy）**
 
-PhotoPrism çš„ XMP æ–‡æ¡£éžå¸¸å…³é”®ï¼šå®ƒæ˜Žç¡®æŒ‡å‡ºâ€œXMP çœ‹ä¼¼ä¸€ä¸ªæ ‡å‡†â€ï¼Œä½†çŽ°å®žä¸­ä¼šå› ä¸º**è§£æžè·¯å¾„ä¸åŒ**å¯¼è‡´åŒä¸€å­—æ®µæ˜¯å¦å¯ç”¨ã€fallback æ˜¯å¦å‘ç”Ÿã€GPS/æ—¶é—´ç­‰æ˜¯å¦è¢«æ­£ç¡®è¯»å–éƒ½ä¸åŒï¼ˆå°¤å…¶ `.xmp` sidecar çš„å†…ç½® reader ä»æ˜¯ PoCï¼‰ã€‚è¿™æ„å‘³ç€æˆ‘ä»¬åœ¨ IA é‡Œä¸èƒ½åªå†™â€œæ”¯æŒ XMPâ€ï¼Œè€Œéœ€è¦åœ¨**å…ƒæ•°æ®å±‚**å†™æ¸…æ¥šï¼š
+PhotoPrism 的 XMP 文档非常关键：它明确指出“XMP 看似一个标准”，但现实中会因为**解析路径不同**导致同一字段是否可用、fallback 是否发生、GPS/时间等是否被正确读取都不同（尤其 `.xmp` sidecar 的内置 reader 仍是 PoC）。这意味着我们在 IA 里不能只写“支持 XMP”，而需要在**元数据层**写清楚：
 
-- **åŒä¸€ä¸ªâ€œé€»è¾‘å­—æ®µâ€å¯èƒ½æœ‰å¤šä¸ªåˆ«åæ¥æº**ï¼ˆä¾‹å¦‚ dc:title vs photoshop:Headline vs IPTC:Headlineï¼‰ï¼Œå¿…é¡»å®šä¹‰â€œä¼˜å…ˆçº§åˆ—è¡¨â€ã€‚
-- **åŒä¸€ä¸ªé€»è¾‘å­—æ®µä¼šè¢«å¤šä¸ªç³»ç»Ÿå†™å…¥**ï¼ˆç›¸æœºåµŒå…¥ã€Lightroom/digiKam sidecarã€æˆ‘ä»¬çš„ sidecarã€æœªæ¥å¯èƒ½çš„åŒæ­¥å™¨ï¼‰ï¼Œå¿…é¡»å®šä¹‰â€œè°èµ¢â€ã€‚
-- å†™å›žï¼ˆwrite-backï¼‰æœ¬è´¨ä¸Šæ˜¯ä¸€ä¸ª**å†²çªç³»ç»Ÿ**ï¼šImmich æ˜Žç¡®æ˜¯â€œåˆå¹¶å†™å›žâ€ï¼Œè€Œä¸æ˜¯è¦†ç›–æ•´æ–‡ä»¶ï¼›åŒæ—¶ä¹Ÿæç¤ºäº†â€œåªè¯»åº“â€ä¼šå¯¼è‡´å†™å›žå¤±è´¥ç”šè‡³æ— æç¤ºçš„é£Žé™©ã€‚
+- **同一个“逻辑字段”可能有多个别名来源**（例如 dc:title vs photoshop:Headline vs IPTC:Headline），必须定义“优先级列表”。
+- **同一个逻辑字段会被多个系统写入**（相机嵌入、Lightroom/digiKam sidecar、我们的 sidecar、未来可能的同步器），必须定义“谁赢”。
+- 写回（write-back）本质上是一个**冲突系统**：Immich 明确是“合并写回”，而不是覆盖整文件；同时也提示了“只读库”会导致写回失败甚至无提示的风险。
 
-ç»“è®ºï¼šæˆ‘ä»¬åº”å½“æŠŠâ€œç…§ç‰‡ metadataâ€å½“æˆ**å¤šæ¥æºåˆå¹¶çš„å­—æ®µé›†åˆ**ï¼Œè€Œä¸æ˜¯ä¸€ä¸ªæ‰å¹³ JSONã€‚
+结论：我们应当把“照片 metadata”当成**多来源合并的字段集合**，而不是一个扁平 JSON。
 
-### 2.2 è¯æ®/å…ƒæ•°æ®å˜æ›´ï¼šç”¨â€œappend-only å˜æ›´æ—¥å¿—â€æŠŠå®¡è®¡ä¸Žæœªæ¥åŒæ­¥å‰ç½®æˆæ ¼å¼é—®é¢˜
+### 2.2 证据/元数据变更：用“append-only 变更日志”把审计与未来同步前置成格式问题
 
-Receipts çš„â€œFile Over Appâ€æ ¼å¼ç»™äº†ä¸€ä¸ªå¯ç›´æŽ¥å€Ÿé‰´çš„æ¨¡æ¿ï¼š
+Receipts 的“File Over App”格式给了一个可直接借鉴的模板：
 
-- `info.json` å£°æ˜Ž workspace ç‰ˆæœ¬/ç±»åž‹/åˆ›å»ºæ—¶é—´ï¼ˆç”šè‡³åŠ å¯†é…ç½®ï¼‰
-- `transactions/`ï¼šæ¯æ¡å˜æ›´éƒ½æ˜¯ append-only çš„ log entryï¼ˆJSONLï¼‰ï¼Œå¯åŠ  checksumï¼›å¯é€‰é“¾å¼å“ˆå¸Œï¼ˆ`p`ï¼‰åšç¯¡æ”¹æ£€æµ‹
-- `assets/`ï¼šäºŒè¿›åˆ¶é™„ä»¶ç‹¬ç«‹å­˜æ”¾ï¼›å¼•ç”¨æŠŠ checksum/size/mime/name ç¼–è¿› URLï¼Œä»Žè€Œâ€œå¼•ç”¨å³æ ¡éªŒâ€
+- `info.json` 声明 workspace 版本/类型/创建时间（甚至加密配置）
+- `transactions/`：每条变更都是 append-only 的 log entry（JSONL），可加 checksum；可选链式哈希（`p`）做篡改检测
+- `assets/`：二进制附件独立存放；引用把 checksum/size/mime/name 编进 URL，从而“引用即校验”
 
-è¿™å¯¹ä¸ªäººå…¨ç”Ÿå‘½å‘¨æœŸæ•°æ®åº“å¾ˆé‡è¦ï¼Œå› ä¸ºæˆ‘ä»¬æœªæ¥ä¸€å®šä¼šé‡åˆ°ï¼š
+这对个人全生命周期数据库很重要，因为我们未来一定会遇到：
 
-- å¤šå·¥å…·å†™åŒä¸€ä»½ sidecar å…ƒæ•°æ®ï¼ˆå†²çªï¼‰
-- ç¦»çº¿è®¾å¤‡/å¤–éƒ¨ç¡¬ç›˜/åŒæ­¥ç›˜å¯¼è‡´çš„â€œå…ˆåŽé¡ºåºä¸ç¡®å®šâ€
-- éœ€è¦å›žç­”â€œè¿™ä¸ªå­—æ®µä»€ä¹ˆæ—¶å€™è¢«è°æ”¹äº†ã€ä¾æ®æ˜¯ä»€ä¹ˆâ€
+- 多工具写同一份 sidecar 元数据（冲突）
+- 离线设备/外部硬盘/同步盘导致的“先后顺序不确定”
+- 需要回答“这个字段什么时候被谁改了、依据是什么”
 
-ç»“è®ºï¼šå³ä¾¿å½“å‰ä¸åšè·¨è®¾å¤‡åŒæ­¥ï¼Œä¹Ÿå€¼å¾—å…ˆåœ¨æ–‡æ¡£é‡Œå®šä¹‰**å®¡è®¡æ—¥å¿—æ ¼å¼**ä¸Ž**èµ„äº§å¼•ç”¨æ ¼å¼**ï¼Œè®©æœªæ¥çš„åŒæ­¥/å›žæ»š/å¯¼å‡ºæ›´å¯æŽ§ã€‚
+结论：即便当前不做跨设备同步，也值得先在文档里定义**审计日志格式**与**资产引用格式**，让未来的同步/回滚/导出更可控。
 
-### 2.3 ç»“æž„åˆ†å±‚ï¼šæŠŠâ€œå˜æ›´é¢‘ç¹çš„æ–‡å­—ç´¢å¼•/è§„åˆ™â€ä¸Žâ€œä½“é‡å·¨å¤§çš„è¯æ®èµ„äº§â€ç‰©ç†åˆ†ç¦»
+### 2.3 结构分层：把“变更频繁的文字索引/规则”与“体量巨大的证据资产”物理分离
 
-Reddit çš„ Obsidian + è¶…å¤§æ ¹ç›®å½•è®¨è®ºæŒ‡å‡ºï¼šæŠŠ 1TB+ çš„äººç”Ÿæ–‡ä»¶ç›´æŽ¥å½“ vault ä¼šå¸¦æ¥ç‰ˆæœ¬ç®¡ç†/æ€§èƒ½/å¤‡ä»½ç­–ç•¥çš„å¤æ‚åº¦ï¼›æ›´ç¨³çš„åšæ³•æ˜¯ï¼š
+Reddit 的 Obsidian + 超大根目录讨论指出：把 1TB+ 的人生文件直接当 vault 会带来版本管理/性能/备份策略的复杂度；更稳的做法是：
 
-- æ–‡å­—ç´¢å¼•/è§„åˆ™/ææ¡ˆï¼šå°ã€å¯ gitã€å¯å›žæ»š
-- è¯æ®èµ„äº§ï¼ˆç…§ç‰‡/æ‰«æä»¶/é™„ä»¶ï¼‰ï¼šå¤§ã€ä¸å¯å˜ã€ç”¨æ ¡éªŒä¸Ž sidecar å…³è”
+- 文字索引/规则/提案：小、可 git、可回滚
+- 证据资产（照片/扫描件/附件）：大、不可变、用校验与 sidecar 关联
 
-ç»“è®ºï¼šæˆ‘ä»¬åœ¨ IA ä¸Šåº”æŠŠâ€œç´¢å¼•å±‚ï¼ˆnotes / schemas / proposalsï¼‰â€ä¸Žâ€œè¯æ®å±‚ï¼ˆassets/evidenceï¼‰â€ä½œä¸º**ä¸¤ç§ä¸åŒçš„å­˜å‚¨å•å…ƒ**å†™æ¸…æ¥šï¼ˆå³ä¾¿éƒ½åœ¨åŒä¸€æ ¹ç›®å½•ä¸‹ï¼‰ã€‚
+结论：我们在 IA 上应把“索引层（notes / schemas / proposals）”与“证据层（assets/evidence）”作为**两种不同的存储单元**写清楚（即便都在同一根目录下）。
 
-## 3. å¯¹å½“å‰ IA çš„å…·ä½“æ”¹åŠ¨å»ºè®®ï¼ˆä»…æ–‡æ¡£/ç»“æž„å±‚é¢ï¼‰
+## 3. 对当前 IA 的具体改动建议（仅文档/结构层面）
 
-### 3.1 åˆ†ç±»/æ ‡ç­¾ï¼ˆå¯¹åº”è®¾è®¡åŒº 1 + 2ï¼‰
+### 3.1 分类/标签（对应设计区 1 + 2）
 
-æ–°å¢ž/å¼ºåŒ–ä¸‰ç»„é€šç”¨å­—æ®µï¼ˆå»ºè®®çº³å…¥ `labels` æˆ– sidecar æœ€å° schemaï¼‰ï¼š
+新增/强化三组通用字段（建议纳入 `labels` 或 sidecar 最小 schema）：
 
-- `field_origin`ï¼šå­—æ®µæ¥è‡ªå“ªé‡Œï¼ˆembedded_exif/xmpã€sidecar_xmpã€sidecar_jsonã€ocrã€llm_extractã€manualã€import_scriptâ€¦ï¼‰
-- `field_authority`ï¼šå½“å¤šæ¥æºå†²çªæ—¶è°æ˜¯â€œé»˜è®¤çœŸç›¸â€ï¼ˆä¾‹å¦‚ photos: sidecar_xmp > embeddedï¼›docs: sidecar_json > pdf_text_ocrï¼‰
-- `field_merge_policy`ï¼šè¦†ç›–/åˆå¹¶ç­–ç•¥ï¼ˆsingle_value_lwwã€multi_set_unionã€priority_list_first_non_emptyã€append_only_logâ€¦ï¼‰
+- `field_origin`：字段来自哪里（embedded_exif/xmp、sidecar_xmp、sidecar_json、ocr、llm_extract、manual、import_script…）
+- `field_authority`：当多来源冲突时谁是“默认真相”（例如 photos: sidecar_xmp > embedded；docs: sidecar_json > pdf_text_ocr）
+- `field_merge_policy`：覆盖/合并策略（single_value_lww、multi_set_union、priority_list_first_non_empty、append_only_log…）
 
-å¹¶æŠŠè¿™äº›ä¸Žæ—¢æœ‰ç»´åº¦ç»‘å®šï¼š
+并把这些与既有维度绑定：
 
-- `pipeline_stage`ï¼ˆingest/parse/ocr/extract/review/finalï¼‰å†³å®šå­—æ®µæ˜¯å¦â€œå¯ä¾èµ–â€
-- `sync_permission` å†³å®šå“ªäº›å­—æ®µå…è®¸è·¨è®¾å¤‡/è·¨åº”ç”¨ä¼ æ’­ï¼ˆä¾‹å¦‚ GPS/äººè„¸/åŒ»ç–—ä¿¡æ¯é»˜è®¤ç¦æ­¢ï¼‰
+- `pipeline_stage`（ingest/parse/ocr/extract/review/final）决定字段是否“可依赖”
+- `sync_permission` 决定哪些字段允许跨设备/跨应用传播（例如 GPS/人脸/医疗信息默认禁止）
 
-### 3.2 ç…§ç‰‡/åª’ä½“ç®¡çº¿ï¼ˆå¯¹åº”è®¾è®¡åŒº 3ï¼‰
+### 3.2 照片/媒体管线（对应设计区 3）
 
-æŠŠâ€œXMP æ”¯æŒâ€æ”¹å†™æˆä¸€é¡µ**ç™½åå• + ä¼˜å…ˆçº§ + å†™å›žç­–ç•¥**ï¼š
+把“XMP 支持”改写成一页**白名单 + 优先级 + 写回策略**：
 
-- ç™½åå•ï¼šåªå†™å›žå°‘æ•°è·¨å·¥å…·é€šç”¨å­—æ®µï¼ˆä¾‹å¦‚ descriptionã€ratingã€tagsã€datetimeã€locationï¼‰ï¼Œå…¶ä»–ä¿æŒåªè¯»æˆ–ä»…å­˜åœ¨äºŽ `*.meta.json`
-- ä¼˜å…ˆçº§ï¼šæ˜¾å¼åˆ—å‡ºæ¯ä¸ªé€»è¾‘å­—æ®µçš„â€œåˆ«åä¼˜å…ˆçº§åˆ—è¡¨â€ï¼ˆå‚è€ƒ Immich çš„ prioritized order ä¸Ž PhotoPrism çš„ alias æ¦‚å¿µï¼‰
-- å†™å›žè®¸å¯ï¼šåŒºåˆ† `writeback_enabled`ï¼ˆèƒ½å¦å†™ sidecarï¼‰ä¸Ž `index_refresh`ï¼ˆä½•æ—¶é‡è¯» sidecarï¼‰ï¼›å¹¶è®°å½•å†™å›žå¤±è´¥çš„å¯è§‚æµ‹æ€§ï¼ˆé¿å… silent failï¼‰
+- 白名单：只写回少数跨工具通用字段（例如 description、rating、tags、datetime、location），其他保持只读或仅存在于 `*.meta.json`
+- 优先级：显式列出每个逻辑字段的“别名优先级列表”（参考 Immich 的 prioritized order 与 PhotoPrism 的 alias 概念）
+- 写回许可：区分 `writeback_enabled`（能否写 sidecar）与 `index_refresh`（何时重读 sidecar）；并记录写回失败的可观测性（避免 silent fail）
 
-### 3.3 è´¢åŠ¡/ç¥¨æ®ä¸Ž life adminï¼ˆå¯¹åº”è®¾è®¡åŒº 5 + 9ï¼‰
+### 3.3 财务/票据与 life admin（对应设计区 5 + 9）
 
-å¼•å…¥ Receipts æ¨¡å¼ä½œä¸ºâ€œæœªæ¥å¯é€‰çš„å®¡è®¡/åŒæ­¥å±‚â€ï¼š
+引入 Receipts 模式作为“未来可选的审计/同步层”：
 
-- ä¸º finance/life-admin è¯æ®å®šä¹‰ `asset://` å¼•ç”¨æ ¼å¼ï¼ˆchecksum/size/mime/name å†…åµŒï¼‰ï¼Œç¡®ä¿â€œå¼•ç”¨å³æ ¡éªŒâ€
-- ä¸ºç»“æž„åŒ–æ¡ç›®ï¼ˆbill/receipt/subscription/deadlineï¼‰å®šä¹‰ append-only `transactions/`ï¼ˆä»…æ–‡æ¡£çº¦å®šå³å¯ï¼‰ï¼ŒæŠŠâ€œå˜æ›´åŽ†å²/çº é”™/æ’¤é”€â€è½åœ¨æ ¼å¼å±‚
+- 为 finance/life-admin 证据定义 `asset://` 引用格式（checksum/size/mime/name 内嵌），确保“引用即校验”
+- 为结构化条目（bill/receipt/subscription/deadline）定义 append-only `transactions/`（仅文档约定即可），把“变更历史/纠错/撤销”落在格式层
 
-### 3.4 åˆ†å‰²/è¿‡æ¸¡ä¸Žæ£€ç´¢ï¼ˆå¯¹åº”è®¾è®¡åŒº 6 + 7 + 8ï¼‰
+### 3.4 分割/过渡与检索（对应设计区 6 + 7 + 8）
 
-- åˆ†å‰²ï¼ˆsegmentationï¼‰æ—¶æŠŠâ€œå­—æ®µå¯ç”¨æ€§â€ä½œä¸ºä¸€ç­‰ä¿¡æ¯ï¼šOCR æœªå®Œæˆ/EXIF æœªæå–/sidecar æœªåŒæ­¥æ—¶ï¼ŒæŠ½å–çš„äº‹å®žåªèƒ½å¤„äºŽ `claim_state=candidate`
-- æ£€ç´¢æ—¶é»˜è®¤â€œè¯æ®å›žæ‹‰â€ï¼šä»»ä½•ç»“è®ºéƒ½èƒ½è¿½æº¯åˆ° `evidence_ref`ï¼ˆfile hash + page/region/message-idï¼‰ï¼Œå¹¶å— `sync_permission`/`sensitivity` é™åˆ¶
+- 分割（segmentation）时把“字段可用性”作为一等信息：OCR 未完成/EXIF 未提取/sidecar 未同步时，抽取的事实只能处于 `claim_state=candidate`
+- 检索时默认“证据回拉”：任何结论都能追溯到 `evidence_ref`（file hash + page/region/message-id），并受 `sync_permission`/`sensitivity` 限制
 
-## 4. æ˜¯å¦å»ºè®®æ”¹åŠ¨å½“å‰ç»“æž„ï¼Ÿ
+## 4. 是否建议改动当前结构？
 
-ç»“è®ºï¼š**å»ºè®®**ï¼Œä½†åªåšâ€œæ–‡æ¡£çº¦å®šâ€å±‚é¢çš„å¢žé‡ï¼š
+结论：**建议**，但只做“文档约定”层面的增量：
 
-1) åœ¨å€™é€‰ schemaï¼ˆsidecar/frontmatterï¼‰é‡Œè¡¥é½ `field_origin/authority/merge_policy`  
-2) å†™ä¸€é¡µâ€œç…§ç‰‡ XMP å­—æ®µç™½åå• + ä¼˜å…ˆçº§ + å†™å›žç­–ç•¥â€  
-3) å¢žè¡¥ä¸€é¡µâ€œappend-only å˜æ›´æ—¥å¿— + asset å¼•ç”¨æ ¼å¼ï¼ˆReceipts é£Žæ ¼ï¼‰â€ä½œä¸ºæœªæ¥åŒæ­¥/å®¡è®¡çš„æ ¼å¼é¢„æ¡ˆ  
+1) 在候选 schema（sidecar/frontmatter）里补齐 `field_origin/authority/merge_policy`
+2) 写一页“照片 XMP 字段白名单 + 优先级 + 写回策略”
+3) 增补一页“append-only 变更日志 + asset 引用格式（Receipts 风格）”作为未来同步/审计的格式预案
 
-ä¸å»ºè®®æ­¤åˆ»å¼•å…¥çœŸæ­£çš„åŒæ­¥/åŠ å¯†/æ‰§è¡Œå™¨å®žçŽ°ï¼ˆä¿æŒ research-onlyï¼‰ã€‚
+不建议此刻引入真正的同步/加密/执行器实现（保持 research-only）。
 
-## 5. é£Žé™©ä¸Žå–èˆ
+## 5. 风险与取舍
 
-- **å¤æ‚åº¦ä¸Šå‡**ï¼šå­—æ®µçº§ authority/merge ä¼šè®© schema æ›´å¤æ‚ï¼›ä½†å®ƒèƒ½æ˜¾è‘—é™ä½Žæœªæ¥å¯¼å…¥/ç¼–è¾‘/åŒæ­¥æ—¶çš„ä¸å¯è§£é‡Šæ€§ã€‚
-- **éšç§æ³„éœ²é¢**ï¼šmetadataï¼ˆå¦‚ GPSã€æœºæž„åã€é‚®ç®±ã€è®¾å¤‡åï¼‰æœ¬èº«å¯èƒ½æ¯”æ­£æ–‡æ›´æ•æ„Ÿï¼›éœ€è¦é»˜è®¤æœ€å°åŒ– + `sync_permission` ä¸¥æ ¼é™åˆ¶ã€‚
-- **åŠ å¯†å¹¶éžé“¶å¼¹**ï¼šReceipts æ–‡æ¡£æç¤ºâ€œæ–‡ä»¶åä»å¯è§â€ï¼›å³ä½¿åŠ å¯†å†…å®¹ï¼Œç›®å½•ç»“æž„/æ–‡ä»¶å/æ—¶é—´æˆ³ä¹Ÿå¯èƒ½æ³„éœ²ï¼Œéœ€è¦åœ¨ IA å±‚æŠŠâ€œå¯è§é¢â€å†™æ¸…æ¥šã€‚
+- **复杂度上升**：字段级 authority/merge 会让 schema 更复杂；但它能显著降低未来导入/编辑/同步时的不可解释性。
+- **隐私泄露面**：metadata（如 GPS、机构名、邮箱、设备名）本身可能比正文更敏感；需要默认最小化 + `sync_permission` 严格限制。
+- **加密并非银弹**：Receipts 文档提示“文件名仍可见”；即使加密内容，目录结构/文件名/时间戳也可能泄露，需要在 IA 层把“可见面”写清楚。
 
-## 6. æœ¬æ¬¡ run çš„è¾“å‡ºï¼ˆå¯¹ 9 ä¸ªè®¾è®¡åŒºçš„æ˜ å°„ï¼‰
+## 6. 本次 run 的输出（对 9 个设计区的映射）
 
-- 1ï¼‰åˆ†ç±» taxonomyï¼šæ–°å¢ž `field_origin/authority/merge_policy`ï¼ˆè·¨åŸŸé€šç”¨ï¼‰
-- 2ï¼‰æ•°æ® labelingï¼šä¸ºæ¯ä¸ªæŠ½å–ç»“æžœé™„å¸¦å­—æ®µçº§ provenance + `claim_state/validity`
-- 3ï¼‰ç…§ç‰‡ç®¡çº¿ï¼šä»Žâ€œæ”¯æŒ XMPâ€å‡çº§åˆ°â€œç™½åå•/ä¼˜å…ˆçº§/å†™å›ž/å¤±è´¥å¯è§‚æµ‹æ€§â€
-- 5ï¼‰email/life adminï¼šå€Ÿé‰´ Receipts çš„èµ„äº§å¼•ç”¨ä¸Žå®¡è®¡æ—¥å¿—ï¼ˆå…ˆæ–‡æ¡£åŒ–ï¼‰
-- 6/7ï¼‰åˆ†å‰²ä¸Žè¿‡æ¸¡ï¼šæŠŠâ€œå­—æ®µå¯ç”¨æ€§/é˜¶æ®µâ€å½“æˆç»“æž„çš„ä¸€éƒ¨åˆ†
-- 8ï¼‰æ£€ç´¢ä¸Žä½¿ç”¨ï¼šé»˜è®¤è¯æ®å›žæ‹‰ + æƒé™æ„ŸçŸ¥æ£€ç´¢
-- 9ï¼‰éšç§ä¸Žè€ä¹…ï¼šappend-only æ—¥å¿— + checksum/é“¾å¼æ ¡éªŒ + å¯é€‰å…¨ä»“åŠ å¯†ï¼ˆä»…è§„èŒƒï¼‰
+- 1）分类 taxonomy：新增 `field_origin/authority/merge_policy`（跨域通用）
+- 2）数据 labeling：为每个抽取结果附带字段级 provenance + `claim_state/validity`
+- 3）照片管线：从“支持 XMP”升级到“白名单/优先级/写回/失败可观测性”
+- 5）email/life admin：借鉴 Receipts 的资产引用与审计日志（先文档化）
+- 6/7）分割与过渡：把“字段可用性/阶段”当成结构的一部分
+- 8）检索与使用：默认证据回拉 + 权限感知检索
+- 9）隐私与耐久：append-only 日志 + checksum/链式校验 + 可选全仓加密（仅规范）
 
-## 7. ä¸‹ä¸€æ­¥å€¼å¾—ç ”ç©¶
+## 7. 下一步值得研究
 
-- æŠŠâ€œç…§ç‰‡å­—æ®µä¼˜å…ˆçº§åˆ—è¡¨â€å…·ä½“åŒ–æˆä¸€å¼ è¡¨ï¼šé€»è¾‘å­—æ®µ â†’ XMP/EXIF/IPTC åˆ«åä¼˜å…ˆçº§ â†’ å†™å›žç™½åå• â†’ æ•æ„Ÿç­–ç•¥ï¼ˆGPS/äººè„¸ï¼‰
-- å®šä¹‰é€šç”¨ `asset://` å¼•ç”¨è§„èŒƒä¸Ž `transactions/` çš„æœ€å° JSONL å˜æ›´è®°å½•å­—æ®µï¼ˆä¸å®žçŽ°ï¼Œåªå®šæ ¼å¼ï¼‰
-- è¿›ä¸€æ­¥æ”¶é›†â€œå¤šå·¥å…·å†™ sidecarâ€æ—¶çš„å†²çªæ¡ˆä¾‹ï¼ˆLightroom/digiKam/Immich/PhotoPrism æ··ç”¨ï¼‰ï¼Œæç‚¼é»˜è®¤ merge ç­–ç•¥
-
-
+- 把“照片字段优先级列表”具体化成一张表：逻辑字段 → XMP/EXIF/IPTC 别名优先级 → 写回白名单 → 敏感策略（GPS/人脸）
+- 定义通用 `asset://` 引用规范与 `transactions/` 的最小 JSONL 变更记录字段（不实现，只定格式）
+- 进一步收集“多工具写 sidecar”时的冲突案例（Lightroom/digiKam/Immich/PhotoPrism 混用），提炼默认 merge 策略
 

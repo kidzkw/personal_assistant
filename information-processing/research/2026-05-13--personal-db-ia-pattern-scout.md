@@ -1,207 +1,205 @@
-﻿# 2026-05-13 ä¸ªäººå…¨ç”Ÿå‘½å‘¨æœŸæ•°æ®åº“ IA å‚è€ƒæ¨¡å¼æ‰«æï¼ˆGitHub/Redditï¼‰
+# 2026-05-13 个人全生命周期数据库 IA 参考模式扫描（GitHub/Reddit）
 
-ç›®æ ‡ï¼šåœ¨ä¸å†™åº”ç”¨ä»£ç çš„å‰æä¸‹ï¼Œä¸ºâ€œlocal-first + file-first inbox + ä¿ç•™åŽŸå§‹è¯æ®â€çš„ä¸ªäººåŠ©ç†/ä¸ªäººæ•°æ®åº“ï¼Œè¡¥å¼º 5+ å¹´å¯æŒç»­çš„ä¿¡æ¯æž¶æž„ï¼šåˆ†ç±»ç»´åº¦ã€æ ‡ç­¾ä½“ç³»ã€åª’ä½“/å¥åº·/é‚®ä»¶ç®¡çº¿ã€åˆ‡æ®µä¸Žè¿ç§»ã€æ£€ç´¢ä¸Žéšç§è€ä¹…æ€§ã€‚
+目标：在不写应用代码的前提下，为“local-first + file-first inbox + 保留原始证据”的个人助理/个人数据库，补强 5+ 年可持续的信息架构：分类维度、标签体系、媒体/健康/邮件管线、切段与迁移、检索与隐私耐久性。
 
-## 0. æœ¬åœ°çŽ°çŠ¶ï¼ˆä»“åº“å†…æ—¢æœ‰æ–¹å‘ï¼‰
+## 0. 本地现状（仓库内既有方向）
 
-å½“å‰ä»“åº“ä¸»è¦æ•´ç†äº† Echo çš„ä¿¡æ¯å¤„ç†é“¾è·¯ï¼Œæ ¸å¿ƒå¯å€Ÿé‰´ç‚¹æ˜¯ä¸‰å±‚åˆ†ç¦»ï¼š
+当前仓库主要整理了 Echo 的信息处理链路，核心可借鉴点是三层分离：
 
-- **è¯æ®å±‚ï¼ˆEvidenceï¼‰**ï¼šåŽŸå§‹ transcript segments / åŽŸå§‹è¾“å…¥ï¼Œä¸åšâ€œç»“è®ºå¼â€è¦†ç›–ï¼Œå¼ºè°ƒå¯å›žæº¯ã€‚
-- **ç†è§£å±‚ï¼ˆUnderstandingï¼‰**ï¼šLLM/è§„åˆ™äº§ç”Ÿçš„ç»“æž„åŒ–æ‘˜è¦ä¸Žè¯­ä¹‰æ ‡ç­¾ï¼ˆtitle/overview/categoryâ€¦ï¼‰ã€‚
-- **è¡ŒåŠ¨/æ£€ç´¢å±‚ï¼ˆAction & Retrievalï¼‰**ï¼šmemoriesã€action_itemsã€eventsã€å‘é‡/ç´¢å¼•å…ƒæ•°æ®ï¼Œç”¨äºŽä»»åŠ¡åŒ–ä¸Žæ£€ç´¢ã€‚  
-  å‚è€ƒï¼šEcho åˆ†æžä¸Žä¿¡æ¯å¤„ç†æ–‡ä»¶å¤¹ï¼ˆä»“åº“å†…ï¼‰ã€‚
+- **证据层（Evidence）**：原始 transcript segments / 原始输入，不做“结论式”覆盖，强调可回溯。
+- **理解层（Understanding）**：LLM/规则产生的结构化摘要与语义标签（title/overview/category…）。
+- **行动/检索层（Action & Retrieval）**：memories、action_items、events、向量/索引元数据，用于任务化与检索。
+  参考：Echo 分析与信息处理文件夹（仓库内）。
 
-è¿™å¥—â€œè¯æ®â†’ç†è§£â†’è¡ŒåŠ¨/æ£€ç´¢â€çš„åˆ†å±‚ï¼Œé€‚åˆæ‰©å±•åˆ°ï¼šç…§ç‰‡/æˆªå›¾ã€PDF/ç¥¨æ®ã€é‚®ä»¶ã€å¥åº·è®°å½•ã€è´¢åŠ¡æµæ°´ã€å…³ç³» CRMã€è®¾å¤‡/è´¦å·èµ„äº§ç­‰ã€‚
+这套“证据→理解→行动/检索”的分层，适合扩展到：照片/截图、PDF/票据、邮件、健康记录、财务流水、关系 CRM、设备/账号资产等。
 
-## 1. å¤–éƒ¨å‚è€ƒæ¨¡å¼ï¼ˆå¼ºç›¸å…³ï¼ŒååŽŸå§‹ repo/doc/è®¨è®ºï¼‰
+## 1. 外部参考模式（强相关，偏原始 repo/doc/讨论）
 
-### 1.1 ç…§ç‰‡/åª’ä½“ï¼š**Sidecar å…ƒæ•°æ® + åŽ»é‡/ç›¸ä¼¼åº¦ + å¯å¯¼å‡º**
+### 1.1 照片/媒体：**Sidecar 元数据 + 去重/相似度 + 可导出**
 
-å…³é”®æ¨¡å¼ï¼š
+关键模式：
 
-1) **ä¸è¦ä¿®æ”¹åŽŸå›¾/åŽŸè§†é¢‘**ï¼Œä¼˜å…ˆé€šè¿‡ sidecarï¼ˆXMP/YAML/JSONï¼‰å†™å…¥å¯ç¼–è¾‘å…ƒæ•°æ®ï¼ˆæ ‡ç­¾ã€æè¿°ã€è¯„åˆ†ã€æ—¶é—´/åœ°ç‚¹ç­‰ï¼‰ï¼Œä¾¿äºŽé•¿æœŸå¯ç§»æ¤ä¸Žå¤–éƒ¨å·¥å…·åä½œã€‚  
-   - Immichï¼šæ”¯æŒ XMP sidecar è¯»å†™ï¼Œå¹¶åœ¨ UI ç¼–è¾‘åŽå¯å†™å›ž sidecarï¼ˆå¸¦å‘½åè§„åˆ™ä¸Žä½œä¸šé˜Ÿåˆ—ï¼‰ã€‚[Immich XMP Sidecars](https://docs.immich.app/features/xmp-sidecars/)  
-   - PhotoPrismï¼šè¯»å–åŽŸå§‹ä¸Ž sidecar å…ƒæ•°æ®ï¼Œå¹¶å¼ºè°ƒâ€œå¯ç‹¬ç«‹äºŽæ•°æ®åº“è®¿é—®å…ƒæ•°æ®â€ï¼Œä¼šç”Ÿæˆå¯è¯» YAML sidecarï¼›åŒæ—¶ä¹Ÿèƒ½è¯»å– Google Photos JSON/Apple XMP ç­‰ã€‚  
+1) **不要修改原图/原视频**，优先通过 sidecar（XMP/YAML/JSON）写入可编辑元数据（标签、描述、评分、时间/地点等），便于长期可移植与外部工具协作。
+   - Immich：支持 XMP sidecar 读写，并在 UI 编辑后可写回 sidecar（带命名规则与作业队列）。[Immich XMP Sidecars](https://docs.immich.app/features/xmp-sidecars/)
+   - PhotoPrism：读取原始与 sidecar 元数据，并强调“可独立于数据库访问元数据”，会生成可读 YAML sidecar；同时也能读取 Google Photos JSON/Apple XMP 等。
      [PhotoPrism Metadata Support](https://docs.photoprism.app/user-guide/library/metadata/)
 
-2) **åŽ»é‡åˆ†ä¸¤å±‚**ï¼šç²¾ç¡®åŽ»é‡ï¼ˆhash/sizeï¼‰ä¸Žè¿‘ä¼¼åŽ»é‡ï¼ˆè§†è§‰ç›¸ä¼¼/ML embeddingï¼‰ã€‚ä¸¤å±‚è¾“å‡ºéƒ½åº”èƒ½å›žæº¯å¹¶å¯äººå·¥å®¡é˜…ã€‚  
-   - PhotoPrismï¼šç²¾ç¡®é‡å¤ä»¥ SHA1+size è·³è¿‡ï¼›ç›¸ä¼¼åº¦èƒ½åŠ›ä¸Žæ„ŸçŸ¥å“ˆå¸Œç”¨äºŽâ€œæŒ‰è§†è§‰ç›¸ä¼¼æŽ’åºâ€ã€‚  
-     [PhotoPrism Duplicate Detection](https://docs.photoprism.app/user-guide/library/duplicates/)  
-     [PhotoPrism Perceptual Hashes](https://docs.photoprism.app/developer-guide/metadata/perceptual-hashes/)  
-   - Immichï¼šæä¾› duplicates utilityï¼ˆåŸºäºŽ MLï¼‰ï¼Œå¹¶åœ¨â€œä¿ç•™/åˆ é™¤â€å†³ç­–æ—¶åš**å…ƒæ•°æ®åŒæ­¥**ï¼ˆç›¸å†Œ/è¯„åˆ†/æè¿°/å¯è§æ€§/ä½ç½®/æ ‡ç­¾ç­‰åˆå¹¶ï¼‰ã€‚  
+2) **去重分两层**：精确去重（hash/size）与近似去重（视觉相似/ML embedding）。两层输出都应能回溯并可人工审阅。
+   - PhotoPrism：精确重复以 SHA1+size 跳过；相似度能力与感知哈希用于“按视觉相似排序”。
+     [PhotoPrism Duplicate Detection](https://docs.photoprism.app/user-guide/library/duplicates/)
+     [PhotoPrism Perceptual Hashes](https://docs.photoprism.app/developer-guide/metadata/perceptual-hashes/)
+   - Immich：提供 duplicates utility（基于 ML），并在“保留/删除”决策时做**元数据同步**（相册/评分/描述/可见性/位置/标签等合并）。
      [Immich Duplicates Utility](https://docs.immich.app/features/duplicates-utility)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- â€œå›¾ç‰‡è¯æ®æ–‡ä»¶â€åº”å½“æ˜¯ä¸å¯å˜èµ„äº§ï¼›æ‰€æœ‰äººå·¥/è‡ªåŠ¨æ ‡ç­¾ä¼˜å…ˆå†™å…¥ sidecarï¼ˆç…§ç‰‡ç”¨ XMPï¼›æˆªå›¾/PDF å¯ç”¨ JSON sidecarï¼‰ï¼Œå‡å°‘ DB lock-inã€‚
-- åŽ»é‡/åˆå¹¶è¦æœ‰â€œ**åˆå¹¶ç­–ç•¥**ï¼ˆé€‰æ‹©ä¿ç•™å“ªä»½ + å…ƒæ•°æ®åˆå¹¶è§„åˆ™ï¼‰â€ï¼Œå¹¶ç•™ä¸‹å®¡è®¡è®°å½•ã€‚
+- “图片证据文件”应当是不可变资产；所有人工/自动标签优先写入 sidecar（照片用 XMP；截图/PDF 可用 JSON sidecar），减少 DB lock-in。
+- 去重/合并要有“**合并策略**（选择保留哪份 + 元数据合并规则）”，并留下审计记录。
 
-### 1.2 æ–‡æ¡£/ç¥¨æ®ï¼š**å¤šè½´åˆ†ç±»ï¼ˆå¯¹åº”äºº/ç±»åž‹/æ ‡ç­¾ï¼‰+ INBOX å®¡é˜…é—¨ + åŒæ—¶é—´**
+### 1.2 文档/票据：**多轴分类（对应人/类型/标签）+ INBOX 审阅门 + 双时间**
 
-Paperless-ngx çš„æ–‡æ¡£ç®¡çº¿ç»™å‡ºäº†ä¸€å¥—éžå¸¸â€œç”Ÿæ´»ç®¡ç†å‹å¥½â€çš„åˆ†ç±»è½´ï¼š
+Paperless-ngx 的文档管线给出了一套非常“生活管理友好”的分类轴：
 
-- **Correspondent**ï¼ˆæ¥å¾€æ–¹ï¼šæœºæž„/ä¸ªäººï¼‰
-- **Document type**ï¼ˆæ–‡æ¡£ç±»åž‹ï¼šinvoice/contract/medical recordâ€¦ï¼Œå»ºè®®ä¿æŒç²—ç²’åº¦ï¼‰
-- **Tags**ï¼ˆå¤šæ ‡ç­¾ï¼Œæ¯”æ–‡ä»¶å¤¹æ›´çµæ´»ï¼‰
-- å¹¶åŒºåˆ† **date added**ï¼ˆæ‘„å…¥æ—¶é—´ï¼Œä¸åº”ä¿®æ”¹ï¼‰ vs **date created**ï¼ˆæ–‡æ¡£ç­¾å‘/å‘ç”Ÿæ—¶é—´ï¼‰ã€‚  
+- **Correspondent**（来往方：机构/个人）
+- **Document type**（文档类型：invoice/contract/medical record…，建议保持粗粒度）
+- **Tags**（多标签，比文件夹更灵活）
+- 并区分 **date added**（摄入时间，不应修改） vs **date created**（文档签发/发生时间）。
   [Paperless-ngx Basic Usage / Terms](https://docs.paperless-ngx.com/usage/)
 
-ç¤¾åŒºè®¨è®ºä¸­åå¤å‡ºçŽ°çš„ç¨³å®šå·¥ä½œæµï¼š
+社区讨论中反复出现的稳定工作流：
 
-- æ‰€æœ‰æ–°æ‘„å…¥æ–‡æ¡£é»˜è®¤æ‰“ `_INBOX/INBOX` æ ‡ç­¾ï¼›äººå·¥æ ¡éªŒåŽå†ç§»é™¤ï¼ˆä¿ç•™â€œæœ€ç»ˆéªŒè¯â€æ­¥éª¤ï¼‰ã€‚  
-  [Reddit: Paperlessngx æ‰«ææœ€ä½³å®žè·µè®¨è®º](https://www.reddit.com/r/Paperlessngx/comments/1i8qbqq)
+- 所有新摄入文档默认打 `_INBOX/INBOX` 标签；人工校验后再移除（保留“最终验证”步骤）。
+  [Reddit: Paperlessngx 扫描最佳实践讨论](https://www.reddit.com/r/Paperlessngx/comments/1i8qbqq)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- â€œç”Ÿæ´»ç®¡ç†æ–‡æ¡£â€å¤©ç„¶é€‚åˆ **3 ä¸ªä¸»è½´**ï¼ˆæ¥å¾€æ–¹/æ–‡æ¡£ç±»åž‹/æ ‡ç­¾ï¼‰ï¼Œæ¯”å•ä¸€å±‚çº§ç›®å½•æ›´ç¨³å®šã€‚
-- æ—¶é—´å­—æ®µå¿…é¡»æ‹†å¼€ï¼š`captured_at/ingested_at`ï¼ˆè¿›å…¥ç³»ç»Ÿæ—¶é—´ï¼‰ä¸Ž `occurred_at/issued_at`ï¼ˆäº‹ä»¶å‘ç”Ÿ/ç­¾å‘æ—¶é—´ï¼‰ã€‚
-- INBOX å®¡é˜…é—¨æ˜¯é•¿æœŸæ­£ç¡®æ€§çš„å…³é”®ï¼ˆå°¤å…¶ç”¨äºŽåŒ»ç–—/è´¢åŠ¡/æ³•å¾‹å…³é”®è®°å½•ï¼‰ã€‚
+- “生活管理文档”天然适合 **3 个主轴**（来往方/文档类型/标签），比单一层级目录更稳定。
+- 时间字段必须拆开：`captured_at/ingested_at`（进入系统时间）与 `occurred_at/issued_at`（事件发生/签发时间）。
+- INBOX 审阅门是长期正确性的关键（尤其用于医疗/财务/法律关键记录）。
 
-### 1.3 é‚®ä»¶ï¼š**tag-first**ï¼ˆæ”¶ä»¶ç®±ä¸æ˜¯æ–‡ä»¶å¤¹ï¼Œè€Œæ˜¯çŠ¶æ€é›†åˆï¼‰
+### 1.3 邮件：**tag-first**（收件箱不是文件夹，而是状态集合）
 
-Notmuch çš„æ ¸å¿ƒæ˜¯ä¸€å¥è¯ï¼š**å…¨å±€æœç´¢ + ä»»æ„ tag çš„é‚®ä»¶ç³»ç»Ÿ**ï¼Œå¹¶å¸Œæœ›ä½ çš„ inbox å˜å¾—â€œnot muchâ€ã€‚  
-[Notmuch å®˜ç½‘](https://notmuchmail.org/)  
-å…¶æ–‡æ¡£è¿˜ç»™å‡ºâ€œnewâ†’inbox/unreadâ€ç­‰ post-processing tagging çš„å®žè·µã€‚  
+Notmuch 的核心是一句话：**全局搜索 + 任意 tag 的邮件系统**，并希望你的 inbox 变得“not much”。
+[Notmuch 官网](https://notmuchmail.org/)
+其文档还给出“new→inbox/unread”等 post-processing tagging 的实践。
 [Notmuch initial tagging](https://notmuchmail.org/initial_tagging/)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- é‚®ä»¶åº”è¢«è§†ä¸ºâ€œä¸å¯å˜è¯æ®ï¼ˆmessage + headers + attachmentsï¼‰â€ï¼Œå…¶â€œæ˜¯å¦éœ€è¦å¤„ç†/å½’æ¡£/ç”Ÿæˆä»»åŠ¡â€ç”¨æ ‡ç­¾ä¸Žæ´¾ç”Ÿå¯¹è±¡è¡¨è¾¾ï¼Œè€Œä¸æ˜¯ç§»åŠ¨æ–‡ä»¶å¤¹ã€‚
+- 邮件应被视为“不可变证据（message + headers + attachments）”，其“是否需要处理/归档/生成任务”用标签与派生对象表达，而不是移动文件夹。
 
-### 1.4 å¥åº·/åŒ»ç–—ï¼š**FHIR èµ„æºåŒ– + è¯æ®æŒ‚è½½ + è§£é‡Šå±‚ï¼ˆäººç±»å¯è¯»ï¼‰**
+### 1.4 健康/医疗：**FHIR 资源化 + 证据挂载 + 解释层（人类可读）**
 
-Fasten Healthï¼ˆè‡ªæ‰˜ç®¡ä¸ªäºº/å®¶åº­ PHR èšåˆå™¨ï¼‰çš„ä¿¡æ¯ç‚¹ï¼š
+Fasten Health（自托管个人/家庭 PHR 聚合器）的信息点：
 
-- ç›®æ ‡æ˜¯æŠŠå¤šæœºæž„è®°å½•æ‹‰åˆ°ä¸ªäººæ‰‹é‡Œï¼ŒåŸºäºŽ FHIR/SMART on FHIRï¼ˆOAuth2ï¼‰ï¼Œå¹¶å¼ºè°ƒè‡ªæ‰˜ç®¡ã€‚  
-  [Fasten Health GitHub ç»„ç»‡é¡µ](https://github.com/fastenhealth)  
-- Reddit é•¿å¸–å±•ç¤ºäº†â€œæŒ‰ Condition æ±‡æ€» Encounter/Lab/Practitionerâ€çš„è§†å›¾ï¼Œä»¥åŠâ€œä¸Šä¼  FHIR Bundle JSONã€ä¸Šä¼ æ–‡æ¡£/å½±åƒâ€ç­‰è·¯çº¿ï¼Œå¹¶è®¨è®ºäº†å®‰å…¨/åˆè§„ä¸Žç½‘å…³ç»„ä»¶çš„æƒè¡¡ã€‚  
-  [Reddit: Fasten Health (selfhosted) 2023 è´´](https://www.reddit.com/r/selfhosted/comments/10ky6tb)
+- 目标是把多机构记录拉到个人手里，基于 FHIR/SMART on FHIR（OAuth2），并强调自托管。
+  [Fasten Health GitHub 组织页](https://github.com/fastenhealth)
+- Reddit 长帖展示了“按 Condition 汇总 Encounter/Lab/Practitioner”的视图，以及“上传 FHIR Bundle JSON、上传文档/影像”等路线，并讨论了安全/合规与网关组件的权衡。
+  [Reddit: Fasten Health (selfhosted) 2023 贴](https://www.reddit.com/r/selfhosted/comments/10ky6tb)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- åŒ»ç–—åŸŸå»ºè®®é‡‡ç”¨â€œ**èµ„æºåŒ–**â€çš„å‘½åï¼šEncounterï¼ˆå°±è¯Š/å°±åŒ»æŽ¥è§¦ï¼‰ã€Observationï¼ˆæŒ‡æ ‡/æ£€éªŒç»“æžœï¼‰ã€Medicationã€Conditionã€Procedureã€Coverage/Claim ç­‰ï¼›å¹¶æŠŠ PDF/ç…§ç‰‡/é‚®ä»¶ä½œä¸ºæ¯ä¸ªèµ„æºçš„ evidence attachmentsã€‚
-- éœ€è¦åŒºåˆ†ï¼š`source-of-truth`ï¼ˆæ¥è‡ªæœºæž„çš„è¯æ®ï¼‰ vs `user-notes`ï¼ˆè‡ªè¿°ç—‡çŠ¶/ä½“æ„Ÿ/è®°å¿†ï¼‰ï¼Œå¹¶åˆ†åˆ«æ ‡æ³¨ç½®ä¿¡åº¦ä¸Žå®¡é˜…çŠ¶æ€ã€‚
+- 医疗域建议采用“**资源化**”的命名：Encounter（就诊/就医接触）、Observation（指标/检验结果）、Medication、Condition、Procedure、Coverage/Claim 等；并把 PDF/照片/邮件作为每个资源的 evidence attachments。
+- 需要区分：`source-of-truth`（来自机构的证据） vs `user-notes`（自述症状/体感/记忆），并分别标注置信度与审阅状态。
 
-### 1.5 å…³ç³»/äººé™…ï¼š**å…³ç³»å›¾è°± + äº’åŠ¨æ—¥å¿— + æé†’**
+### 1.5 关系/人际：**关系图谱 + 互动日志 + 提醒**
 
-Monicaï¼ˆä¸ªäºº CRM/PRMï¼‰å¼ºè°ƒï¼šè”ç³»äººã€å…³ç³»ã€æ´»åŠ¨è®°å½•ã€é‡è¦æ—¥æœŸä¸Žæé†’ã€‚  
-[Monica GitHub](https://github.com/monicahq/monica)  
-[Monica å®˜ç½‘ä»‹ç»](https://www.monicahq.com/)
+Monica（个人 CRM/PRM）强调：联系人、关系、活动记录、重要日期与提醒。
+[Monica GitHub](https://github.com/monicahq/monica)
+[Monica 官网介绍](https://www.monicahq.com/)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- â€œäººâ€åº”å½“æ˜¯ç¬¬ä¸€ç±»å®žä½“ï¼ˆentityï¼‰ï¼Œä¸Žé‚®ä»¶/ç…§ç‰‡/äº‹ä»¶/ç¤¼ç‰©/å¯¹è¯éƒ½èƒ½å»ºç«‹å…³è”è¾¹ï¼ˆrelationsï¼‰ã€‚
-- å…³ç³»ç»´åº¦å»ºè®®ç‹¬ç«‹äºŽ domainï¼ˆä¾‹å¦‚åŒ»ç–—ä¹Ÿä¼šå…³è”åŒ»ç”Ÿï¼›è´¢åŠ¡ä¹Ÿä¼šå…³è”æ”¶æ¬¾æ–¹ï¼‰ã€‚
+- “人”应当是第一类实体（entity），与邮件/照片/事件/礼物/对话都能建立关联边（relations）。
+- 关系维度建议独立于 domain（例如医疗也会关联医生；财务也会关联收款方）。
 
-### 1.6 è´¢åŠ¡ï¼š**å¤æ‚å¯¹è±¡æ‹†åˆ† + è§„åˆ™/å‘¨æœŸ + å¯å›žæº¯**
+### 1.6 财务：**复杂对象拆分 + 规则/周期 + 可回溯**
 
-Firefly III çš„æž¶æž„æ–‡æ¡£å¼ºè°ƒäº¤æ˜“è¢«æ‹†æˆå¤šä¸ªå±‚çº§å¯¹è±¡ï¼ˆgroup/journal/transactionsï¼‰ï¼Œå¹¶æä¾›è§„åˆ™ä¸Ž recurring çš„æ¦‚å¿µã€‚  
-[Firefly III æž¶æž„è¯´æ˜Ž](https://docs.firefly-iii.org/explanation/more-information/architecture/)  
-æ­¤å¤–ï¼ŒActual Budget æ˜Žç¡®å®šä½ä¸ºâ€œlocal-first personal finance appâ€ã€‚  
+Firefly III 的架构文档强调交易被拆成多个层级对象（group/journal/transactions），并提供规则与 recurring 的概念。
+[Firefly III 架构说明](https://docs.firefly-iii.org/explanation/more-information/architecture/)
+此外，Actual Budget 明确定位为“local-first personal finance app”。
 [Actual Budget GitHub](https://github.com/actualbudget/actual)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- è´¢åŠ¡è®°å½•å»ºè®®æŠŠâ€œè¯æ®ï¼ˆè´¦å•/æ”¶æ®/PDF/é‚®ä»¶ï¼‰â€ä¸Žâ€œç»“æž„åŒ–æ¡ç›®ï¼ˆäº¤æ˜“/è®¢é˜…/è´¦æœŸ/åº”ç¼´æˆªæ­¢æ—¥ï¼‰â€åˆ†ç¦»ï¼Œå¹¶é€šè¿‡ `evidence_refs` å›žé“¾ã€‚
-- recurring/subscription æ˜¯ä¸€ç­‰å¯¹è±¡ï¼Œé€‚åˆé©±åŠ¨â€œæé†’/ä»»åŠ¡â€æ´¾ç”Ÿï¼Œè€Œä¸æ˜¯é å…¨æ–‡æœç´¢ä¸´æ—¶å‘çŽ°ã€‚
+- 财务记录建议把“证据（账单/收据/PDF/邮件）”与“结构化条目（交易/订阅/账期/应缴截止日）”分离，并通过 `evidence_refs` 回链。
+- recurring/subscription 是一等对象，适合驱动“提醒/任务”派生，而不是靠全文搜索临时发现。
 
-### 1.7 è¿žç»­æµ/è¡Œä¸ºæ—¥å¿—ï¼š**bucket + events + å¿ƒè·³åˆå¹¶ï¼ˆsegmentation æ¨¡æ¿ï¼‰**
+### 1.7 连续流/行为日志：**bucket + events + 心跳合并（segmentation 模板）**
 
-ActivityWatch çš„æ•°æ®æ¨¡åž‹éžå¸¸ç®€æ´ï¼šbucketï¼ˆæ•°æ®æºå®¹å™¨ï¼‰ + eventï¼ˆtimestamp/duration/dataï¼‰ï¼Œå¹¶æä¾› heartbeat åˆå¹¶ç›¸é‚»åŒæ€äº‹ä»¶ä»¥å‡å°‘å™ªå£°ã€‚  
+ActivityWatch 的数据模型非常简洁：bucket（数据源容器） + event（timestamp/duration/data），并提供 heartbeat 合并相邻同态事件以减少噪声。
 [ActivityWatch Buckets & Events](https://docs.activitywatch.net/en/latest/buckets-and-events.html)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- å¯¹æœªæ¥çš„â€œè¿žç»­æµâ€ï¼ˆå¯ç©¿æˆ´ã€éŸ³é¢‘ã€å±å¹•æ´»åŠ¨ã€ä½ç½®ï¼‰å¯ä»¥ç»Ÿä¸€ç”¨ï¼š`stream`ï¼ˆç›¸å½“äºŽ bucketï¼‰+ `event`ï¼ˆtimestamp+duration+payloadï¼‰ä½œä¸ºåº•å±‚åŽŸå­ï¼Œå†æ´¾ç”Ÿå‡ºæ›´é«˜å±‚çš„â€œä¼šè¯/æ´»åŠ¨/æ—¥åŽ†äº‹ä»¶â€ã€‚
+- 对未来的“连续流”（可穿戴、音频、屏幕活动、位置）可以统一用：`stream`（相当于 bucket）+ `event`（timestamp+duration+payload）作为底层原子，再派生出更高层的“会话/活动/日历事件”。
 
-### 1.8 è®°å¿†ç³»ç»Ÿï¼š**æ ¸å¿ƒè®°å¿† vs æ¡£æ¡ˆè®°å¿†ï¼ˆåˆ†å±‚ï¼‰**
+### 1.8 记忆系统：**核心记忆 vs 档案记忆（分层）**
 
-Lettaï¼ˆMemGPT ç³»åˆ—ï¼‰å¼ºè°ƒè®°å¿†åˆ†å±‚ï¼šæ ¸å¿ƒè®°å¿†ï¼ˆå§‹ç»ˆå¯è§çš„æŒä¹…å—ï¼‰ä¸Žæ¡£æ¡ˆè®°å¿†ï¼ˆå¯æ£€ç´¢çš„å¤–éƒ¨å­˜å‚¨ï¼‰ã€‚  
-[Letta MemGPT æž¶æž„æ¦‚è§ˆ](https://docs.letta.com/guides/agents/architectures/memgpt)
+Letta（MemGPT 系列）强调记忆分层：核心记忆（始终可见的持久块）与档案记忆（可检索的外部存储）。
+[Letta MemGPT 架构概览](https://docs.letta.com/guides/agents/architectures/memgpt)
 
-è½åˆ°ä¸ªäººæ•°æ®åº“ IA çš„å¯ç¤ºï¼š
+落到个人数据库 IA 的启示：
 
-- ä¸ªäººæ•°æ®åº“ä¸­â€œé•¿æœŸæœ‰ç”¨äº‹å®žï¼ˆmemoriesï¼‰â€åº”å½“æ˜¯å¯ç»´æŠ¤çš„æ‘˜è¦å±‚ï¼ˆå°‘è€Œç²¾ï¼‰ï¼Œå¹¶æ°¸è¿œå¯å›žæº¯åˆ°è¯æ®ï¼›å¤§é‡åŽŸå§‹å†…å®¹ç•™åœ¨æ¡£æ¡ˆå±‚åšæ£€ç´¢ã€‚
+- 个人数据库中“长期有用事实（memories）”应当是可维护的摘要层（少而精），并永远可回溯到证据；大量原始内容留在档案层做检索。
 
-## 2. å¯¹çŽ°æœ‰â€œlocal-first + file-firstâ€æ–¹å‘çš„å¼ºæ”¹è¿›ç‚¹ï¼ˆå»ºè®®é‡‡çº³ï¼‰
+## 2. 对现有“local-first + file-first”方向的强改进点（建议采纳）
 
-ä¸‹é¢æ˜¯é’ˆå¯¹ä½ åˆ—å‡ºçš„ 9 ä¸ªè®¾è®¡å…³æ³¨ç‚¹ï¼Œæç‚¼å‡ºæ¥çš„â€œç»“æž„æ€§å¢žå¼ºâ€ï¼š
+下面是针对你列出的 9 个设计关注点，提炼出来的“结构性增强”：
 
-### 2.1 åˆ†ç±»/æ ‡ç­¾ä½“ç³»ï¼šä»Žâ€œå•ä¸€åˆ†ç±»â€å‡çº§ä¸º**å¤šç»´æ ‡ç­¾å‘é‡ï¼ˆç¨³å®šï¼‰**
+### 2.1 分类/标签体系：从“单一分类”升级为**多维标签向量（稳定）**
 
-å»ºè®®æŠŠâ€œåˆ†ç±»â€æ‹†æˆå¯ç»„åˆçš„ç»´åº¦ï¼ˆä¼˜å…ˆä»Žå¯è‡ªåŠ¨/å¯äººå·¥å…±è¯†çš„ç»´åº¦å…¥æ‰‹ï¼‰ï¼š
+建议把“分类”拆成可组合的维度（优先从可自动/可人工共识的维度入手）：
 
-- **domain**ï¼šhealth / finance / legal / relationships / home / travel / work / education / devices / identity â€¦
-- **source_category**ï¼šemail / scan / screenshot / photo / export-json / statement / chat / note â€¦
-- **media_type**ï¼šimage / pdf / text / markdown / json / videoï¼ˆéŸ³é¢‘åŽç»­ï¼‰
-- **semantic_type**ï¼ˆç±»ä¼¼ paperless çš„ document_typeï¼‰ï¼šinvoice / receipt / lab_result / visit_note / prescription / insurance_claim / contract / warranty â€¦
-- **counterparty**ï¼ˆç±»ä¼¼ paperless çš„ correspondentï¼‰ï¼šperson/org/providerï¼ˆä¹Ÿå¯è½åˆ°å®žä½“å›¾è°±ï¼‰
-- **actionability**ï¼šnone / task_candidate / event_candidate / followup_required
-- **sensitivity/privacy**ï¼špublic / personal / confidential / regulated(health)ï¼ˆå¯å†ç»†åˆ†ï¼‰
-- **temporal**ï¼šoccurred_at / captured_at / ingested_atï¼ˆè‡³å°‘ä¸‰æ—¶é—´ï¼‰
-- **confidence**ï¼š0-1ï¼ˆæŠ½å–/åˆ†ç±»ç½®ä¿¡åº¦ï¼‰
-- **review_state**ï¼šinbox / needs_review / reviewed / disputed
-- **retention_class**ï¼šephemeral / standard / long_term / permanentï¼ˆç»“åˆ legal/medical/financial criticalityï¼‰
-- **criticality**ï¼šlow/medium/highï¼ˆæ³•å¾‹/åŒ»ç–—/è´¢åŠ¡å…³é”®æ€§ï¼‰
-- **sync_permission**ï¼šlocal_only / ok_to_sync_metadata / ok_to_sync_contentï¼ˆä¸ºæœªæ¥å¤šè®¾å¤‡/äº‘åŒæ­¥é¢„ç•™ï¼‰
+- **domain**：health / finance / legal / relationships / home / travel / work / education / devices / identity …
+- **source_category**：email / scan / screenshot / photo / export-json / statement / chat / note …
+- **media_type**：image / pdf / text / markdown / json / video（音频后续）
+- **semantic_type**（类似 paperless 的 document_type）：invoice / receipt / lab_result / visit_note / prescription / insurance_claim / contract / warranty …
+- **counterparty**（类似 paperless 的 correspondent）：person/org/provider（也可落到实体图谱）
+- **actionability**：none / task_candidate / event_candidate / followup_required
+- **sensitivity/privacy**：public / personal / confidential / regulated(health)（可再细分）
+- **temporal**：occurred_at / captured_at / ingested_at（至少三时间）
+- **confidence**：0-1（抽取/分类置信度）
+- **review_state**：inbox / needs_review / reviewed / disputed
+- **retention_class**：ephemeral / standard / long_term / permanent（结合 legal/medical/financial criticality）
+- **criticality**：low/medium/high（法律/医疗/财务关键性）
+- **sync_permission**：local_only / ok_to_sync_metadata / ok_to_sync_content（为未来多设备/云同步预留）
 
-### 2.2 æ ‡æ³¨å¯¹è±¡ï¼šç»Ÿä¸€â€œè¯æ®â†’æ´¾ç”Ÿâ†’å®žä½“å›¾è°±â€çš„å¼•ç”¨æœºåˆ¶
+### 2.2 标注对象：统一“证据→派生→实体图谱”的引用机制
 
-å»ºè®®ç»Ÿä¸€ä¸ºä¸€å¥— sidecar å…ƒæ•°æ®ç»“æž„ï¼ˆJSONï¼‰ï¼Œæœ€å°‘è¦åŒ…å«ï¼š
+建议统一为一套 sidecar 元数据结构（JSON），最少要包含：
 
-- `id`ï¼ˆç¨³å®šã€è·¨ç§»åŠ¨/é‡å‘½åä»å¯è¿½è¸ªï¼‰
-- `kind`ï¼ševidence | asset | chunk | extraction | entity_ref | event_ref | task_ref | memory_ref
-- `provenance`ï¼šæ¥æºï¼ˆsource_category + åŽŸå§‹è·¯å¾„/å“ˆå¸Œ + é‡‡é›†è®¾å¤‡/å¯¼å‡ºå·¥å…·/é‚®ç®±ç­‰ï¼‰
-- `timestamps`ï¼šoccurred/captured/ingested
-- `labels`ï¼šä¸Šè¿°å¤šç»´æ ‡ç­¾
-- `evidence_refs`ï¼šæ´¾ç”Ÿå¯¹è±¡å¿…é¡»åˆ—å‡ºå…¶è¯æ®å¼•ç”¨ï¼ˆæ–‡ä»¶+åç§»/é¡µç /åŒºåŸŸ/æ¶ˆæ¯ ID ç­‰ï¼‰
+- `id`（稳定、跨移动/重命名仍可追踪）
+- `kind`：evidence | asset | chunk | extraction | entity_ref | event_ref | task_ref | memory_ref
+- `provenance`：来源（source_category + 原始路径/哈希 + 采集设备/导出工具/邮箱等）
+- `timestamps`：occurred/captured/ingested
+- `labels`：上述多维标签
+- `evidence_refs`：派生对象必须列出其证据引用（文件+偏移/页码/区域/消息 ID 等）
 
-### 2.3 åª’ä½“ç®¡çº¿ï¼šæŠŠâ€œsidecarâ€ä½œä¸ºä¸€ç­‰å…¬æ°‘
+### 2.3 媒体管线：把“sidecar”作为一等公民
 
-å»ºè®®å¯¹ç…§ç‰‡/æˆªå›¾/æ‰«æä»¶é‡‡ç”¨â€œåŽŸæ–‡ä»¶ + sidecarâ€æ ‡å‡†ï¼š
+建议对照片/截图/扫描件采用“原文件 + sidecar”标准：
 
-- ç…§ç‰‡/è§†é¢‘ï¼šä¼˜å…ˆå…¼å®¹ XMP sidecarï¼ˆImmich/PhotoPrism ç”Ÿæ€å·²è¯æ˜Žå¯è¡Œï¼‰ã€‚
-- æ‰«æ PDF/æˆªå›¾/å¯¼å‡º JSONï¼šä½¿ç”¨ `*.meta.json` sidecar æ‰¿è½½è·¨åŸŸæ ‡ç­¾ã€OCR äº§ç‰©å¼•ç”¨ã€åŽ»é‡ä¿¡æ¯ï¼ˆsha1/phashï¼‰ã€éšç§çº§åˆ«ã€å®¡é˜…çŠ¶æ€ç­‰ã€‚
+- 照片/视频：优先兼容 XMP sidecar（Immich/PhotoPrism 生态已证明可行）。
+- 扫描 PDF/截图/导出 JSON：使用 `*.meta.json` sidecar 承载跨域标签、OCR 产物引用、去重信息（sha1/phash）、隐私级别、审阅状态等。
 
-### 2.4 åŒ»ç–—ç®¡çº¿ï¼šFHIR å‘½å + è¯æ®æŒ‚è½½ + å®¡é˜…é—¨
+### 2.4 医疗管线：FHIR 命名 + 证据挂载 + 审阅门
 
-- æŠŠâ€œå°±è¯Š/æ£€éªŒ/ç”¨è¯/è¯Šæ–­/ä¿é™©â€ç­‰å½“ä½œå¯é“¾æŽ¥å®žä½“ï¼ˆEncounter/Observation/Medication/Conditionâ€¦ï¼‰ï¼Œæ¯ä¸ªå®žä½“éƒ½å¯æŒ‚å¤šä»½ evidenceï¼ˆPDFã€æˆªå›¾ã€é‚®ä»¶ã€ç…§ç‰‡ï¼‰ã€‚
-- åŒ»ç–—åŸŸé»˜è®¤æ›´é«˜æ•æ„Ÿçº§åˆ«ï¼Œä¸¥æ ¼ `sync_permission=local_only` ä½œä¸ºé»˜è®¤ã€‚
+- 把“就诊/检验/用药/诊断/保险”等当作可链接实体（Encounter/Observation/Medication/Condition…），每个实体都可挂多份 evidence（PDF、截图、邮件、照片）。
+- 医疗域默认更高敏感级别，严格 `sync_permission=local_only` 作为默认。
 
-### 2.5 é‚®ä»¶/ç”Ÿæ´»ç®¡ç†ï¼šNotmuch+Paperless çš„ç»„åˆæ€è·¯
+### 2.5 邮件/生活管理：Notmuch+Paperless 的组合思路
 
-- é‚®ä»¶è¯æ®ä¸å¯å˜ï¼ˆæ¶ˆæ¯ä½“+header+é™„ä»¶ï¼‰ï¼›â€œè¦ä¸è¦åŠž/åˆ°æœŸæ—¥/è´¦å•é‡‘é¢â€ç­‰éƒ½ä½œä¸ºæ´¾ç”Ÿæ¡ç›®å†™å…¥ç»“æž„åŒ–å±‚ï¼Œå¹¶å›žé“¾è¯æ®ã€‚
-- `inbox` ä½œä¸º review_stateï¼Œè€Œä¸æ˜¯ç›®å½•ï¼›ä¸Ž paperless çš„ INBOX æ ‡ç­¾ä¸€è‡´ã€‚
+- 邮件证据不可变（消息体+header+附件）；“要不要办/到期日/账单金额”等都作为派生条目写入结构化层，并回链证据。
+- `inbox` 作为 review_state，而不是目录；与 paperless 的 INBOX 标签一致。
 
-### 2.6 åˆ‡æ®µ/è¿žç»­æµï¼šé¢„ç½® ActivityWatch é£Žæ ¼çš„ event åŽŸå­
+### 2.6 切段/连续流：预置 ActivityWatch 风格的 event 原子
 
-ä¸ºæœªæ¥éŸ³é¢‘/å¯ç©¿æˆ´/å±å¹•æ´»åŠ¨é¢„ç•™ï¼š
+为未来音频/可穿戴/屏幕活动预留：
 
-- `stream/bucket`ï¼ˆæ•°æ®æºå®¹å™¨ï¼‰+ `event(timestamp,duration,payload)` çš„æœ€å°åŽŸå­ï¼›
-- heartbeat/merge ä½œä¸ºâ€œé™å™ªâ€ç­–ç•¥ä¹‹ä¸€ï¼ˆåˆå¹¶ç›¸é‚»åŒæ€äº‹ä»¶ï¼‰ã€‚
+- `stream/bucket`（数据源容器）+ `event(timestamp,duration,payload)` 的最小原子；
+- heartbeat/merge 作为“降噪”策略之一（合并相邻同态事件）。
 
-## 3. é£Žé™©/å–èˆï¼ˆéœ€è¦æ˜¾å¼å†™è¿›è§„åˆ™ï¼‰
+## 3. 风险/取舍（需要显式写进规则）
 
-- **sidecar ä¸€è‡´æ€§é£Žé™©**ï¼šè‹¥æœªæ¥å¼•å…¥ DB/ç´¢å¼•ï¼Œå¿…é¡»å®šä¹‰â€œsidecar ä¸Žç´¢å¼•â€çš„åŒæ­¥ç­–ç•¥ï¼ˆè°æ˜¯ä¸»ã€ä½•æ—¶å›žå†™ã€å†²çªå¦‚ä½•å¤„ç†ï¼‰ã€‚Immich çš„â€œå†™å›žä½œä¸šâ€ä¸Ž PhotoPrism çš„â€œå¯å¯¼å‡º sidecarâ€æ˜¯ä¸¤ç§ä¸åŒå–å‘ï¼Œéœ€è¦åœ¨æœ¬ç³»ç»Ÿé‡Œæ˜Žç¡®ã€‚  
-  å‚è€ƒï¼š[Immich XMP Sidecars](https://docs.immich.app/features/xmp-sidecars/) / [PhotoPrism Metadata Support](https://docs.photoprism.app/user-guide/library/metadata/)
-- **è¿‘ä¼¼åŽ»é‡è¯¯ä¼¤**ï¼šè§†è§‰ç›¸ä¼¼/embedding åŽ»é‡ä¼šè¯¯åˆ¤ï¼›å¿…é¡»å¼ºåˆ¶äººå·¥å®¡é˜…ï¼Œå¹¶ä¿ç•™â€œè¢«ä¸¢å¼ƒæ–‡ä»¶çš„å…ƒæ•°æ®åˆå¹¶/è¯æ®ä¿ç•™â€ç­–ç•¥ã€‚  
-  å‚è€ƒï¼š[Immich Duplicates Utility](https://docs.immich.app/features/duplicates-utility) / [PhotoPrism Perceptual Hashes](https://docs.photoprism.app/developer-guide/metadata/perceptual-hashes/)
-- **åŒ»ç–—/è´¢åŠ¡çš„åˆè§„ä¸Žæ³„éœ²é¢**ï¼šå³ä¾¿ transcript/evidence åŠ å¯†ï¼Œæ´¾ç”Ÿæ‘˜è¦ä¸Žç´¢å¼•å…ƒæ•°æ®ä¹Ÿå¯èƒ½æ³„éœ²è¯­ä¹‰ï¼ˆEcho çš„æé†’åŒæ ·é€‚ç”¨ï¼‰ã€‚å¯¹æ•æ„ŸåŸŸé»˜è®¤æœ€å°åŒ–ç´¢å¼•ä¸ŽåŒæ­¥æƒé™ã€‚
+- **sidecar 一致性风险**：若未来引入 DB/索引，必须定义“sidecar 与索引”的同步策略（谁是主、何时回写、冲突如何处理）。Immich 的“写回作业”与 PhotoPrism 的“可导出 sidecar”是两种不同取向，需要在本系统里明确。
+  参考：[Immich XMP Sidecars](https://docs.immich.app/features/xmp-sidecars/) / [PhotoPrism Metadata Support](https://docs.photoprism.app/user-guide/library/metadata/)
+- **近似去重误伤**：视觉相似/embedding 去重会误判；必须强制人工审阅，并保留“被丢弃文件的元数据合并/证据保留”策略。
+  参考：[Immich Duplicates Utility](https://docs.immich.app/features/duplicates-utility) / [PhotoPrism Perceptual Hashes](https://docs.photoprism.app/developer-guide/metadata/perceptual-hashes/)
+- **医疗/财务的合规与泄露面**：即便 transcript/evidence 加密，派生摘要与索引元数据也可能泄露语义；对敏感域默认最小化索引与同步权限。
 
-## 4. æœ¬æ¬¡ run çš„ç»“è®ºï¼ˆé¢å‘ç»“æž„è°ƒæ•´ï¼‰
+## 4. 本次 run 的结论（面向结构调整）
 
-æŽ¨èçš„ç»“æž„æ€§æ”¹å˜ï¼ˆåªåšæ–‡æ¡£å±‚é¢ææ¡ˆï¼Œä¸è½ä»£ç ï¼‰ï¼š
+推荐的结构性改变（只做文档层面提案，不落代码）：
 
-1) æŠŠâ€œå¤šç»´æ ‡ç­¾ç»´åº¦â€ä½œä¸º**ç»Ÿä¸€å…ƒæ•°æ® schema**çš„æ ¸å¿ƒï¼Œè€Œä¸æ˜¯å•ä¸€ categoryã€‚
-2) æ˜Žç¡®â€œè¯æ®å±‚ä¸å¯å˜ + sidecar æ‰¿è½½å¯ç¼–è¾‘å…ƒæ•°æ®â€çš„é•¿æœŸç­–ç•¥ï¼ˆç…§ç‰‡ä¼˜å…ˆå…¼å®¹ XMPï¼‰ã€‚
-3) å¼•å…¥ `review_state=inbox` çš„ç»Ÿä¸€å®¡é˜…é—¨ï¼ˆæ–‡æ¡£/é‚®ä»¶/åŒ»ç–—/è´¢åŠ¡éƒ½é€‚ç”¨ï¼‰ã€‚
-4) ä¸ºæœªæ¥è¿žç»­æµé¢„ç•™ `stream + event` åŽŸå­æ¨¡åž‹ï¼ˆActivityWatch æ¡¶/äº‹ä»¶/å¿ƒè·³åˆå¹¶ä½œä¸ºå‚è€ƒï¼‰ã€‚
+1) 把“多维标签维度”作为**统一元数据 schema**的核心，而不是单一 category。
+2) 明确“证据层不可变 + sidecar 承载可编辑元数据”的长期策略（照片优先兼容 XMP）。
+3) 引入 `review_state=inbox` 的统一审阅门（文档/邮件/医疗/财务都适用）。
+4) 为未来连续流预留 `stream + event` 原子模型（ActivityWatch 桶/事件/心跳合并作为参考）。
 
-ä¸‹ä¸€æ­¥å»ºè®®ï¼ˆç ”ç©¶æ–¹å‘ï¼‰ï¼š
+下一步建议（研究方向）：
 
-- æ›´æ·±å…¥å¯¹é½ï¼šPaperless çš„ workflowsï¼ˆè§¦å‘å™¨/åŠ¨ä½œï¼‰å¦‚ä½•æ˜ å°„ä¸ºâ€œæœ¬åœ° file-first ç®¡çº¿â€çš„è§„åˆ™ç³»ç»Ÿï¼ˆä»…æ–‡æ¡£ææ¡ˆï¼Œä¸å†™æ‰§è¡Œå™¨ï¼‰ã€‚
-- é’ˆå¯¹åŒ»ç–—ï¼šæ¢³ç† Fasten/PHR çš„èµ„æºç²’åº¦ä¸Žå¸¸è§è§†å›¾ï¼ˆCondition-centric timelineã€Labs panelï¼‰ï¼Œå¹¶æ˜ å°„åˆ°æœ¬ç³»ç»Ÿ entity graph çš„æœ€å°å­—æ®µé›†åˆã€‚
-- é’ˆå¯¹ç…§ç‰‡ï¼šå¯¹é½ XMP/EXIF/IPTC çš„â€œå†™å›žå“ªäº›å­—æ®µâ€ç™½åå•ä¸Žæ•æ„Ÿå­—æ®µå¤„ç†ç­–ç•¥ï¼ˆä¾‹å¦‚ GPS/äººè„¸æ ‡ç­¾é»˜è®¤ä¸å†™å›ž/ä¸å¤–åŒæ­¥ï¼‰ã€‚
-
-
+- 更深入对齐：Paperless 的 workflows（触发器/动作）如何映射为“本地 file-first 管线”的规则系统（仅文档提案，不写执行器）。
+- 针对医疗：梳理 Fasten/PHR 的资源粒度与常见视图（Condition-centric timeline、Labs panel），并映射到本系统 entity graph 的最小字段集合。
+- 针对照片：对齐 XMP/EXIF/IPTC 的“写回哪些字段”白名单与敏感字段处理策略（例如 GPS/人脸标签默认不写回/不外同步）。
 

@@ -1,4 +1,4 @@
-﻿{
+{
   "domain_event_summary_report": {
     "report_id": "domain_report_fake_finance_001",
     "secretary_agent": "finance_secretary",
@@ -15,4 +15,3 @@
     }
   }
 }
-

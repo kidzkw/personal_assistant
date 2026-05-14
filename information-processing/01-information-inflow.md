@@ -1,10 +1,10 @@
 # 01. Echo Information Inflow
 
-Echo treats every input as evidence first. It does not assume that one device, one app, or one account is the center of the system.
+Echo treats every input as evidence first. The system should not jump directly from "new data arrived" to "confirmed memory". It first creates a small evidence packet that can be cited, reviewed, and reprocessed.
 
-## Input Sources
+## 1. Input Sources
 
-Echo should eventually accept controlled local inputs from:
+Initial supported source types:
 
 ```text
 manual_note
@@ -16,60 +16,78 @@ email_export
 chat_export
 calendar_export
 future_audio
-future_wearable_stream
-future_location_export
+unknown
 ```
 
-Early versions should not ingest everything automatically. The first deployable runtime only uses fake data and manually created evidence packets.
+These source labels describe where evidence came from. They do not decide the final memory category.
 
-## Inbox Rule
+## 2. Inbox Rule
 
-All inputs first become inbox items:
+Everything enters an inbox-like holding area first:
 
-```yaml
-inbox_item:
-  id:
-  source_category:
-  original_path:
-  ingested_at:
-  basic_type:
-  review_state: inbox
-  sensitivity:
-  sync_permission:
+```text
+runtime/inbox/          # future local-only real input, git ignored
+runtime/truth/raw_evidence/
+runtime/truth/sidecars/
 ```
 
-The inbox layer should preserve the source and defer semantic judgment. Echo should not convert a file, email, or screenshot into a long-term memory until there is evidence, citation, and review.
-
-## Evidence Packet
-
-High-value evidence is wrapped in a small packet:
-
-```yaml
-evidence_packet:
-  packet_id:
-  original_ref:
-  meta_ref:
-  text_or_ocr_ref:
-  preview_ref:
-  redacted_ref:
-  packet_status:
-  sensitivity:
-```
-
-The packet is not a replacement for the original file. It is a navigation bundle that helps Echo connect candidates, citations, and review results back to the source.
-
-## Current Runtime Example
-
-The current dry run uses one fake financial evidence file:
+For the current dry run, the fake raw evidence is committed because it contains no real personal data:
 
 ```text
 runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
-```
-
-Its packet sidecar is:
-
-```text
 runtime/truth/sidecars/ep_fake_bill_001.meta.json
 ```
 
-This proves the shape of the inflow without touching real personal data.
+## 3. Evidence Packet
+
+An evidence packet is a small wrapper around one source item or one carefully scoped slice of a source item.
+
+Minimal fields:
+
+```yaml
+packet_id: ep_fake_bill_001
+source_type: local_text_file
+raw_evidence_ref: runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
+sensitivity: financial
+review_state: inbox
+local_only: true
+citation_refs:
+  - ref_id: bill_text_full
+    locator: file
+```
+
+## 4. First Processing Landing Point
+
+The first durable output is not a memory. It is a reviewable candidate:
+
+```text
+evidence_packet
+ -> candidate
+ -> processing_result
+ -> audit_result
+ -> proposal_result
+```
+
+This keeps early extraction cheap to change. If the schema is wrong, we can reprocess from raw evidence instead of rewriting confirmed memory.
+
+## 5. Current Dry Run
+
+The current fake flow uses financial data because it forces the review gate:
+
+```text
+fake credit card bill
+ -> evidence packet sidecar
+ -> finance candidate
+ -> processing_result
+ -> audit_result requiring human review
+ -> proposal_result with no confirmed truth write
+ -> PS work log with next_spawn_allowed=false
+```
+
+## 6. Key Points
+
+- Source type is not the same as semantic category.
+- Raw evidence remains durable and citeable.
+- High-risk domains default to local-only review.
+- Inbox and working outputs are not truth.
+- Every confirmed memory must be explainable from evidence refs.
