@@ -1,57 +1,57 @@
-# 2026-05-13 17:26 EDT - Raw samples vs semantic activity projections
+﻿# 2026-05-13 17:26 EDT - Raw samples vs semantic activity projections
 
-本轮问题：上一轮已经把 `timeline_projection` 和 `temporal_anchor` 纳入 P0，但还需要继续确认位置历史、Apple Health / wearable、未来 audio stream 这类连续数据应该怎样进入个人记忆库，避免把 Google/Apple/设备厂商的语义推断直接当成事实。
+æœ¬è½®é—®é¢˜ï¼šä¸Šä¸€è½®å·²ç»æŠŠ `timeline_projection` å’Œ `temporal_anchor` çº³å…¥ P0ï¼Œä½†è¿˜éœ€è¦ç»§ç»­ç¡®è®¤ä½ç½®åŽ†å²ã€Apple Health / wearableã€æœªæ¥ audio stream è¿™ç±»è¿žç»­æ•°æ®åº”è¯¥æ€Žæ ·è¿›å…¥ä¸ªäººè®°å¿†åº“ï¼Œé¿å…æŠŠ Google/Apple/è®¾å¤‡åŽ‚å•†çš„è¯­ä¹‰æŽ¨æ–­ç›´æŽ¥å½“æˆäº‹å®žã€‚
 
-## 读取的本地上下文
+## è¯»å–çš„æœ¬åœ°ä¸Šä¸‹æ–‡
 
 - `information-processing/README.md`
 - `information-processing/06-global-workflow.md`
 - `information-processing/07-personal-memory-minimal-workflow.md`
 - `information-processing/research/candidate-proposals.md`
-- `docs/omi-information-processing-analysis.md`
+- `docs/echo-information-processing-design.md`
 
-当前方向仍然成立：local-first、file-first inbox、原始证据保留、AI/OCR/来源系统推断先做 candidate/projection，重要事实需要 evidence pullback。
+å½“å‰æ–¹å‘ä»ç„¶æˆç«‹ï¼šlocal-firstã€file-first inboxã€åŽŸå§‹è¯æ®ä¿ç•™ã€AI/OCR/æ¥æºç³»ç»ŸæŽ¨æ–­å…ˆåš candidate/projectionï¼Œé‡è¦äº‹å®žéœ€è¦ evidence pullbackã€‚
 
-## 外部来源
+## å¤–éƒ¨æ¥æº
 
 1. Timelinize
    - GitHub: https://github.com/timelinize/timelinize
    - Go package docs: https://pkg.go.dev/github.com/timelinize/timelinize/timeline
-   - 发现：Timelinize 把导入数据放在本地文件夹和 SQLite 中，并通过 timeline / map / conversation / gallery 等 projection 组织浏览；其模型支持 timestamp、timespan、timeframe、time_offset、time_uncertainty，并且强调原始 source data 仍要保留。
-   - 意义：继续支持上一轮判断，timeline/map/gallery 不能成为 truth，只能是从原始 item、entity、location、conversation 生成的视图。
+   - å‘çŽ°ï¼šTimelinize æŠŠå¯¼å…¥æ•°æ®æ”¾åœ¨æœ¬åœ°æ–‡ä»¶å¤¹å’Œ SQLite ä¸­ï¼Œå¹¶é€šè¿‡ timeline / map / conversation / gallery ç­‰ projection ç»„ç»‡æµè§ˆï¼›å…¶æ¨¡åž‹æ”¯æŒ timestampã€timespanã€timeframeã€time_offsetã€time_uncertaintyï¼Œå¹¶ä¸”å¼ºè°ƒåŽŸå§‹ source data ä»è¦ä¿ç•™ã€‚
+   - æ„ä¹‰ï¼šç»§ç»­æ”¯æŒä¸Šä¸€è½®åˆ¤æ–­ï¼Œtimeline/map/gallery ä¸èƒ½æˆä¸º truthï¼Œåªèƒ½æ˜¯ä»ŽåŽŸå§‹ itemã€entityã€locationã€conversation ç”Ÿæˆçš„è§†å›¾ã€‚
 
 2. Google Takeout Location History / Semantic Location History
    - schema reference: https://locationhistoryformat.com/reference/semantic/
    - general structure: https://locationhistoryformat.com/guides/general-structure/
    - DFIR Review: https://dfir.pubpub.org/pub/d39u7lg1
    - Reddit: https://www.reddit.com/r/GoogleMaps/comments/1g6gx3v/the_semantic_location_history_from_google_takeout/
-   - 发现：Google Takeout 通常同时有 raw `Records.json` 和较高层的 `Semantic Location History`；语义层由 `activitySegment` 与 `placeVisit` 组成，按月 JSON 存放。DFIR 分析显示，用户编辑会影响 Semantic Location History，而 raw location data 可以保持不同性质的原始证据。Reddit 讨论也提醒旧版 Takeout 的 semantic export 可能比迁移后的设备端导出更完整。
-   - 意义：个人数据库不应把 `placeVisit` / `activitySegment` 直接确认成“我确实去了哪里/做了什么”。它们应带 `source_interpretation_level=source_semantic`、`confidence`、`time_source`、`location_source`，并可从 raw records 回拉。
+   - å‘çŽ°ï¼šGoogle Takeout é€šå¸¸åŒæ—¶æœ‰ raw `Records.json` å’Œè¾ƒé«˜å±‚çš„ `Semantic Location History`ï¼›è¯­ä¹‰å±‚ç”± `activitySegment` ä¸Ž `placeVisit` ç»„æˆï¼ŒæŒ‰æœˆ JSON å­˜æ”¾ã€‚DFIR åˆ†æžæ˜¾ç¤ºï¼Œç”¨æˆ·ç¼–è¾‘ä¼šå½±å“ Semantic Location Historyï¼Œè€Œ raw location data å¯ä»¥ä¿æŒä¸åŒæ€§è´¨çš„åŽŸå§‹è¯æ®ã€‚Reddit è®¨è®ºä¹Ÿæé†’æ—§ç‰ˆ Takeout çš„ semantic export å¯èƒ½æ¯”è¿ç§»åŽçš„è®¾å¤‡ç«¯å¯¼å‡ºæ›´å®Œæ•´ã€‚
+   - æ„ä¹‰ï¼šä¸ªäººæ•°æ®åº“ä¸åº”æŠŠ `placeVisit` / `activitySegment` ç›´æŽ¥ç¡®è®¤æˆâ€œæˆ‘ç¡®å®žåŽ»äº†å“ªé‡Œ/åšäº†ä»€ä¹ˆâ€ã€‚å®ƒä»¬åº”å¸¦ `source_interpretation_level=source_semantic`ã€`confidence`ã€`time_source`ã€`location_source`ï¼Œå¹¶å¯ä»Ž raw records å›žæ‹‰ã€‚
 
 3. Apple Health / HealthKit
    - Apple `HKSample.startDate`: https://developer.apple.com/documentation/healthkit/hksample/startdate
    - Apple `HKSourceRevision`: https://developer.apple.com/documentation/healthkit/hksourcerevision
    - Reddit export examples: https://www.reddit.com/r/AppleWatch/comments/1irkloq and https://www.reddit.com/r/AppleWatch/comments/1goka7n
-   - 发现：HealthKit sample 有 start/end window；source revision/source/device 对 provenance 很关键。Apple Health XML export 在社区反馈里常见问题是体量大、难处理、字段会随类型变化，症状等类别可能丢失细节。
-   - 意义：未来健康/wearable 导入的最小对象不应一开始就是 `medical_record`，而应先是 `health_sample` / `health_interval`：保留 type、unit、value、start/end、source/device、creation/import time、raw record ref。日/周统计、睡眠段汇总、运动趋势是 cache/projection。
+   - å‘çŽ°ï¼šHealthKit sample æœ‰ start/end windowï¼›source revision/source/device å¯¹ provenance å¾ˆå…³é”®ã€‚Apple Health XML export åœ¨ç¤¾åŒºåé¦ˆé‡Œå¸¸è§é—®é¢˜æ˜¯ä½“é‡å¤§ã€éš¾å¤„ç†ã€å­—æ®µä¼šéšç±»åž‹å˜åŒ–ï¼Œç—‡çŠ¶ç­‰ç±»åˆ«å¯èƒ½ä¸¢å¤±ç»†èŠ‚ã€‚
+   - æ„ä¹‰ï¼šæœªæ¥å¥åº·/wearable å¯¼å…¥çš„æœ€å°å¯¹è±¡ä¸åº”ä¸€å¼€å§‹å°±æ˜¯ `medical_record`ï¼Œè€Œåº”å…ˆæ˜¯ `health_sample` / `health_interval`ï¼šä¿ç•™ typeã€unitã€valueã€start/endã€source/deviceã€creation/import timeã€raw record refã€‚æ—¥/å‘¨ç»Ÿè®¡ã€ç¡çœ æ®µæ±‡æ€»ã€è¿åŠ¨è¶‹åŠ¿æ˜¯ cache/projectionã€‚
 
 4. Fasten Health
    - GitHub: https://github.com/fastenhealth/fasten-onprem
    - Fasten docs / Connect event shape: https://docs.connect.fastenhealth.com/webhooks/events
    - Reddit: https://www.reddit.com/r/selfhosted/comments/12pcna3
-   - 发现：Fasten OnPrem 定位为 self-hosted personal/family health record viewer，开源版当前强调手动录入或导入 FHIR bundle；Connect 一侧可把医疗记录以 NDJSON/FHIR resource 批量输出。
-   - 意义：医疗记录仍应保持“文档证据 + 简化对象 + citation”的个人版做法；FHIR resource 名称可作为字段命名参考，但不应把所有健康/wearable samples 都升级为完整医疗记录。
+   - å‘çŽ°ï¼šFasten OnPrem å®šä½ä¸º self-hosted personal/family health record viewerï¼Œå¼€æºç‰ˆå½“å‰å¼ºè°ƒæ‰‹åŠ¨å½•å…¥æˆ–å¯¼å…¥ FHIR bundleï¼›Connect ä¸€ä¾§å¯æŠŠåŒ»ç–—è®°å½•ä»¥ NDJSON/FHIR resource æ‰¹é‡è¾“å‡ºã€‚
+   - æ„ä¹‰ï¼šåŒ»ç–—è®°å½•ä»åº”ä¿æŒâ€œæ–‡æ¡£è¯æ® + ç®€åŒ–å¯¹è±¡ + citationâ€çš„ä¸ªäººç‰ˆåšæ³•ï¼›FHIR resource åç§°å¯ä½œä¸ºå­—æ®µå‘½åå‚è€ƒï¼Œä½†ä¸åº”æŠŠæ‰€æœ‰å¥åº·/wearable samples éƒ½å‡çº§ä¸ºå®Œæ•´åŒ»ç–—è®°å½•ã€‚
 
 5. QS Ledger
    - GitHub: https://github.com/markwk/qs_ledger
-   - 发现：个人 quantified-self 项目常见目标是下载各服务数据、存本地、再做分析/仪表盘；raw download 与 analysis output 是两层。
-   - 意义：个人记忆库里，连续健康/位置/活动流的第一价值是“可保留、可检索、可回溯”，分析看板是可重建输出。
+   - å‘çŽ°ï¼šä¸ªäºº quantified-self é¡¹ç›®å¸¸è§ç›®æ ‡æ˜¯ä¸‹è½½å„æœåŠ¡æ•°æ®ã€å­˜æœ¬åœ°ã€å†åšåˆ†æž/ä»ªè¡¨ç›˜ï¼›raw download ä¸Ž analysis output æ˜¯ä¸¤å±‚ã€‚
+   - æ„ä¹‰ï¼šä¸ªäººè®°å¿†åº“é‡Œï¼Œè¿žç»­å¥åº·/ä½ç½®/æ´»åŠ¨æµçš„ç¬¬ä¸€ä»·å€¼æ˜¯â€œå¯ä¿ç•™ã€å¯æ£€ç´¢ã€å¯å›žæº¯â€ï¼Œåˆ†æžçœ‹æ¿æ˜¯å¯é‡å»ºè¾“å‡ºã€‚
 
-## 结构性发现
+## ç»“æž„æ€§å‘çŽ°
 
-### 1. 连续数据需要区分 raw sample 与 source semantic object
+### 1. è¿žç»­æ•°æ®éœ€è¦åŒºåˆ† raw sample ä¸Ž source semantic object
 
-位置、健康、活动、未来音频/可穿戴流都不应直接进入 `memory` 或 `medical_record`。更稳的个人版分层：
+ä½ç½®ã€å¥åº·ã€æ´»åŠ¨ã€æœªæ¥éŸ³é¢‘/å¯ç©¿æˆ´æµéƒ½ä¸åº”ç›´æŽ¥è¿›å…¥ `memory` æˆ– `medical_record`ã€‚æ›´ç¨³çš„ä¸ªäººç‰ˆåˆ†å±‚ï¼š
 
 ```text
 raw_sample / raw_record
@@ -60,17 +60,17 @@ raw_sample / raw_record
  -> reviewed memory / task / medical / finance object
 ```
 
-建议新增一个轻量标签：
+å»ºè®®æ–°å¢žä¸€ä¸ªè½»é‡æ ‡ç­¾ï¼š
 
 ```yaml
 interpretation_level: raw | source_semantic | derived_candidate | reviewed_fact | projection
 ```
 
-它和 `review_state` 不重复：`review_state` 表示人是否确认；`interpretation_level` 表示这条记录本身离原始观测有多远。
+å®ƒå’Œ `review_state` ä¸é‡å¤ï¼š`review_state` è¡¨ç¤ºäººæ˜¯å¦ç¡®è®¤ï¼›`interpretation_level` è¡¨ç¤ºè¿™æ¡è®°å½•æœ¬èº«ç¦»åŽŸå§‹è§‚æµ‹æœ‰å¤šè¿œã€‚
 
-### 2. 位置历史的最小个人版对象
+### 2. ä½ç½®åŽ†å²çš„æœ€å°ä¸ªäººç‰ˆå¯¹è±¡
 
-当前不建议实现 Google sync 或地图功能，只建议把未来兼容对象写清：
+å½“å‰ä¸å»ºè®®å®žçŽ° Google sync æˆ–åœ°å›¾åŠŸèƒ½ï¼Œåªå»ºè®®æŠŠæœªæ¥å…¼å®¹å¯¹è±¡å†™æ¸…ï¼š
 
 ```yaml
 location_raw_point:
@@ -103,11 +103,11 @@ movement_segment_candidate:
   interpretation_level: source_semantic
 ```
 
-这些对象只服务于 `travel_timeline`、`map_view`、`daily_projection` 和“我那天大概在哪里”这类检索。除非用户明确确认，不应自动生成“我去了 X”的长期记忆。
+è¿™äº›å¯¹è±¡åªæœåŠ¡äºŽ `travel_timeline`ã€`map_view`ã€`daily_projection` å’Œâ€œæˆ‘é‚£å¤©å¤§æ¦‚åœ¨å“ªé‡Œâ€è¿™ç±»æ£€ç´¢ã€‚é™¤éžç”¨æˆ·æ˜Žç¡®ç¡®è®¤ï¼Œä¸åº”è‡ªåŠ¨ç”Ÿæˆâ€œæˆ‘åŽ»äº† Xâ€çš„é•¿æœŸè®°å¿†ã€‚
 
-### 3. 健康/wearable 样本的最小个人版对象
+### 3. å¥åº·/wearable æ ·æœ¬çš„æœ€å°ä¸ªäººç‰ˆå¯¹è±¡
 
-不把 Apple Health / Fitbit / Whoop 等 future import 直接混入医疗档案。建议先保留：
+ä¸æŠŠ Apple Health / Fitbit / Whoop ç­‰ future import ç›´æŽ¥æ··å…¥åŒ»ç–—æ¡£æ¡ˆã€‚å»ºè®®å…ˆä¿ç•™ï¼š
 
 ```yaml
 health_sample:
@@ -126,19 +126,19 @@ health_sample:
   sync_permission: local_only
 ```
 
-从这些样本生成的 sleep session、exercise summary、weekly trend、doctor prep summary 都是 `projection` 或 `working`，不是 truth。
+ä»Žè¿™äº›æ ·æœ¬ç”Ÿæˆçš„ sleep sessionã€exercise summaryã€weekly trendã€doctor prep summary éƒ½æ˜¯ `projection` æˆ– `working`ï¼Œä¸æ˜¯ truthã€‚
 
-## 是否改变当前结构
+## æ˜¯å¦æ”¹å˜å½“å‰ç»“æž„
 
-建议小幅改变：
+å»ºè®®å°å¹…æ”¹å˜ï¼š
 
-- P0：新增 `interpretation_level`，用于 raw/source semantic/derived/reviewed/projection 的轻量区分。
-- P1：为未来位置/健康连续数据预留 `location_raw_point`、`place_visit_candidate`、`movement_segment_candidate`、`health_sample`，但不现在实现导入器。
-- 保持上一轮 `temporal_anchor` 与 `timeline_projection` 不变；本轮只是补充“投影从哪里来，以及源系统语义不能直接当事实”。
+- P0ï¼šæ–°å¢ž `interpretation_level`ï¼Œç”¨äºŽ raw/source semantic/derived/reviewed/projection çš„è½»é‡åŒºåˆ†ã€‚
+- P1ï¼šä¸ºæœªæ¥ä½ç½®/å¥åº·è¿žç»­æ•°æ®é¢„ç•™ `location_raw_point`ã€`place_visit_candidate`ã€`movement_segment_candidate`ã€`health_sample`ï¼Œä½†ä¸çŽ°åœ¨å®žçŽ°å¯¼å…¥å™¨ã€‚
+- ä¿æŒä¸Šä¸€è½® `temporal_anchor` ä¸Ž `timeline_projection` ä¸å˜ï¼›æœ¬è½®åªæ˜¯è¡¥å……â€œæŠ•å½±ä»Žå“ªé‡Œæ¥ï¼Œä»¥åŠæºç³»ç»Ÿè¯­ä¹‰ä¸èƒ½ç›´æŽ¥å½“äº‹å®žâ€ã€‚
 
-## 推荐 category / label 变化
+## æŽ¨è category / label å˜åŒ–
 
-新增或明确：
+æ–°å¢žæˆ–æ˜Žç¡®ï¼š
 
 ```yaml
 domain: location | health_stream
@@ -150,26 +150,28 @@ location_sensitivity: normal | home_work_pattern | precise_gps | third_party_pre
 
 ## Proposed schema impact
 
-轻量 schema 影响：
+è½»é‡ schema å½±å“ï¼š
 
-- `labels` 或 sidecar 最小字段增加可选 `interpretation_level`。
-- `temporal_anchor` 对 continuous stream 至少要求 `start_time/end_time/time_source/timezone`。
-- `timeline_entry` 增加或明确 `built_from_refs`，指向 raw sample 或 source semantic object。
-- `health_sample` 和 `location_raw_point` 只作为未来导入兼容对象，不进入当前 MVP 主干。
+- `labels` æˆ– sidecar æœ€å°å­—æ®µå¢žåŠ å¯é€‰ `interpretation_level`ã€‚
+- `temporal_anchor` å¯¹ continuous stream è‡³å°‘è¦æ±‚ `start_time/end_time/time_source/timezone`ã€‚
+- `timeline_entry` å¢žåŠ æˆ–æ˜Žç¡® `built_from_refs`ï¼ŒæŒ‡å‘ raw sample æˆ– source semantic objectã€‚
+- `health_sample` å’Œ `location_raw_point` åªä½œä¸ºæœªæ¥å¯¼å…¥å…¼å®¹å¯¹è±¡ï¼Œä¸è¿›å…¥å½“å‰ MVP ä¸»å¹²ã€‚
 
-## 风险 / tradeoff
+## é£Žé™© / tradeoff
 
-- 好处：避免 Google/Apple/设备厂商推断污染个人事实层；未来导入健康/位置数据时不会重构时间线模型。
-- 成本：多一个轻量标签 `interpretation_level`，需要文档解释清楚。
-- 隐私风险：精确 GPS、home/work pattern、健康样本和睡眠数据都高度敏感；默认 `local_only`，默认不 embed，不导出 raw。
-- 质量风险：Google semantic export 会受编辑影响，Apple Health export 可能巨大且字段不完整；必须保留 `source_name/source_version/import_batch/evidence_ref`。
+- å¥½å¤„ï¼šé¿å… Google/Apple/è®¾å¤‡åŽ‚å•†æŽ¨æ–­æ±¡æŸ“ä¸ªäººäº‹å®žå±‚ï¼›æœªæ¥å¯¼å…¥å¥åº·/ä½ç½®æ•°æ®æ—¶ä¸ä¼šé‡æž„æ—¶é—´çº¿æ¨¡åž‹ã€‚
+- æˆæœ¬ï¼šå¤šä¸€ä¸ªè½»é‡æ ‡ç­¾ `interpretation_level`ï¼Œéœ€è¦æ–‡æ¡£è§£é‡Šæ¸…æ¥šã€‚
+- éšç§é£Žé™©ï¼šç²¾ç¡® GPSã€home/work patternã€å¥åº·æ ·æœ¬å’Œç¡çœ æ•°æ®éƒ½é«˜åº¦æ•æ„Ÿï¼›é»˜è®¤ `local_only`ï¼Œé»˜è®¤ä¸ embedï¼Œä¸å¯¼å‡º rawã€‚
+- è´¨é‡é£Žé™©ï¼šGoogle semantic export ä¼šå—ç¼–è¾‘å½±å“ï¼ŒApple Health export å¯èƒ½å·¨å¤§ä¸”å­—æ®µä¸å®Œæ•´ï¼›å¿…é¡»ä¿ç•™ `source_name/source_version/import_batch/evidence_ref`ã€‚
 
 ## Confidence
 
-中高。Timelinize、Google Takeout/DFIR、Apple Health/HealthKit、Fasten 与 QS Ledger 的模式一致：原始导出和语义/分析视图必须分层。唯一不确定点是未来实际选择哪些设备/导出格式，因此只建议文档级预留，不建议实现。
+ä¸­é«˜ã€‚Timelinizeã€Google Takeout/DFIRã€Apple Health/HealthKitã€Fasten ä¸Ž QS Ledger çš„æ¨¡å¼ä¸€è‡´ï¼šåŽŸå§‹å¯¼å‡ºå’Œè¯­ä¹‰/åˆ†æžè§†å›¾å¿…é¡»åˆ†å±‚ã€‚å”¯ä¸€ä¸ç¡®å®šç‚¹æ˜¯æœªæ¥å®žé™…é€‰æ‹©å“ªäº›è®¾å¤‡/å¯¼å‡ºæ ¼å¼ï¼Œå› æ­¤åªå»ºè®®æ–‡æ¡£çº§é¢„ç•™ï¼Œä¸å»ºè®®å®žçŽ°ã€‚
 
-## 下次调查
+## ä¸‹æ¬¡è°ƒæŸ¥
 
-- 深入比较 Apple Health export、HealthKit live sample、Fitbit/Whoop export 的字段差异，确定 `health_sample` 最小字段是否足够。
-- 调查 Dawarich / OwnTracks / GPSLogger 一类 local-first location history 工具，验证 `location_raw_point -> place_visit_candidate -> map_view` 是否足够。
-- 给 `daily_projection` 写一页规则：位置和健康数据默认显示粒度、哪些只显示计数/趋势、哪些必须 redacted。
+- æ·±å…¥æ¯”è¾ƒ Apple Health exportã€HealthKit live sampleã€Fitbit/Whoop export çš„å­—æ®µå·®å¼‚ï¼Œç¡®å®š `health_sample` æœ€å°å­—æ®µæ˜¯å¦è¶³å¤Ÿã€‚
+- è°ƒæŸ¥ Dawarich / OwnTracks / GPSLogger ä¸€ç±» local-first location history å·¥å…·ï¼ŒéªŒè¯ `location_raw_point -> place_visit_candidate -> map_view` æ˜¯å¦è¶³å¤Ÿã€‚
+- ç»™ `daily_projection` å†™ä¸€é¡µè§„åˆ™ï¼šä½ç½®å’Œå¥åº·æ•°æ®é»˜è®¤æ˜¾ç¤ºç²’åº¦ã€å“ªäº›åªæ˜¾ç¤ºè®¡æ•°/è¶‹åŠ¿ã€å“ªäº›å¿…é¡» redactedã€‚
+
+

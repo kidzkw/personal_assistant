@@ -1,402 +1,402 @@
-# Candidate Proposals（持续更新）
+﻿# Candidate Proposalsï¼ˆæŒç»­æ›´æ–°ï¼‰
 
-更新时间：2026-05-13
+æ›´æ–°æ—¶é—´ï¼š2026-05-13
 
-> 目的：把每次 research run 的“可落地结构建议”压缩成少量候选项，便于后续逐步固化为正式 IA/目录约定/元数据 schema（仅文档，不做代码实现）。
+> ç›®çš„ï¼šæŠŠæ¯æ¬¡ research run çš„â€œå¯è½åœ°ç»“æž„å»ºè®®â€åŽ‹ç¼©æˆå°‘é‡å€™é€‰é¡¹ï¼Œä¾¿äºŽåŽç»­é€æ­¥å›ºåŒ–ä¸ºæ­£å¼ IA/ç›®å½•çº¦å®š/å…ƒæ•°æ® schemaï¼ˆä»…æ–‡æ¡£ï¼Œä¸åšä»£ç å®žçŽ°ï¼‰ã€‚
 
-## P0（强烈建议纳入当前结构）
+## P0ï¼ˆå¼ºçƒˆå»ºè®®çº³å…¥å½“å‰ç»“æž„ï¼‰
 
-### P0-1：统一元数据为“多维标签向量”（替代单一 category）
+### P0-1ï¼šç»Ÿä¸€å…ƒæ•°æ®ä¸ºâ€œå¤šç»´æ ‡ç­¾å‘é‡â€ï¼ˆæ›¿ä»£å•ä¸€ categoryï¼‰
 
-- **发现来源**：Paperless-ngx 的 correspondents / document types / tags 多轴体系；Notmuch 的 tag-first 收件箱；Omi 的 system labels + semantic labels + derived labels 分层。
-- **要点**：
+- **å‘çŽ°æ¥æº**ï¼šPaperless-ngx çš„ correspondents / document types / tags å¤šè½´ä½“ç³»ï¼›Notmuch çš„ tag-first æ”¶ä»¶ç®±ï¼›Echo çš„ system labels + semantic labels + derived labels åˆ†å±‚ã€‚
+- **è¦ç‚¹**ï¼š
   - `domain / source_category / media_type / semantic_type / counterparty / actionability / sensitivity / temporal / confidence / review_state / retention_class / criticality / sync_permission`
-  - 强制区分 `occurred_at` 与 `ingested_at`（Paperless 的 date created vs date added 模式）。
-- **收益**：跨域（照片/邮件/健康/财务）一致；便于长期演进与检索过滤。
-- **schema 影响（提案级）**：新增 `labels` 结构；任何派生对象必须带 `evidence_refs`。
-- **风险**：维度过多会导致人工维护成本上升；需要默认值与“逐步补全”策略（INBOX 审阅门）。
-
-### P0-2：证据层不可变 + sidecar 元数据为一等公民（照片优先 XMP）
-
-- **发现来源**：Immich XMP sidecar 读写与作业；PhotoPrism 的 metadata 合并与 YAML sidecar 导出。
-- **要点**：
-  - 原文件（evidence/assets）尽量不修改；
-  - 元数据（标签、描述、OCR 引用、敏感级别、审阅状态、去重信息）写 sidecar（照片用 XMP；其他用 `*.meta.json`）。
-- **收益**：降低 DB lock-in；长期迁移/工具互操作更强。
-- **schema 影响（提案级）**：定义 sidecar 的最小键集合（`id/kind/provenance/timestamps/labels/evidence_refs`）。
-- **风险**：sidecar 与未来索引/缓存的一致性与冲突策略需要先写清楚。
-
-### P0-3：统一 `review_state=inbox` 审阅门（跨域通用）
-
-- **发现来源**：Paperless-ngx 的 INBOX 标签工作流；社区经验“自动化只做到建议，最终要人工确认”。
-- **要点**：
-  - 默认进入 `inbox`；
-  - 自动抽取只产生“候选派生对象”（task/event/fact），在 `reviewed` 前不进入核心记忆/关键索引。
-- **收益**：长期正确性、降低噪声与误归类；特别适合医疗/财务。
-- **风险**：需要明确“多长时间不审阅的处理策略”（提醒/降级/归档）。
-
-### P0-4：把“溯源/审计（provenance）”提升为一等字段（区分文档溯源 vs 记录溯源）
-
-- **发现来源**：FHIR `DocumentReference` 强调“被引用文档的溯源”与“引用记录本身的溯源”是两套信息；W3C PROV（entity/activity/agent）；以及 Paperless 的管线阶段差异带来的可解释性需求。
-- **要点**：
-  - 在 sidecar/frontmatter 的最小 schema 中加入 `provenance.document` 与 `provenance.record`；
-  - 抽取结论类条目新增 `claim_state`（candidate/confirmed/disputed/superseded/retracted）与 `validity`（valid_from/valid_to/last_confirmed_at）；
-  - 任何派生对象强制 `evidence_refs`（可回溯到文件 hash + 页码/区域/消息 id 等）。
-- **收益**：医疗/法律/财务场景可解释、可纠错；长期维护不会“忘了这条信息怎么来的”。
-- **schema 影响（提案级）**：sidecar/frontmatter 最小字段集需要扩展；并明确 provenance 字段也受 `sensitivity/sync_permission` 约束。
-- **风险**：provenance 本身可能泄露敏感元信息（路径/机构/邮箱/设备名）；需要默认最小化与脱敏策略。
-
-### P0-5：字段级“权威/合并语义”显式化（尤其是照片 XMP 的别名优先级与写回规则）
-
-- **发现来源**：PhotoPrism 对 XMP 的两条解析路径与 sidecar reader 限制（embedded 经 ExifTool vs `.xmp` PoC reader）；Immich 对 XMP sidecar 的“合并写回（merge）”与字段优先级顺序、命名规则、DISCOVER/SYNC 作业。
-- **要点**：
-  - 为关键元数据字段补齐三件事：`field_origin`（来自 embedded/sidecar/OCR/手工/抽取…）、`field_authority`（冲突时谁是默认真相）、`field_merge_policy`（覆盖/合并/优先级列表）；
-  - 照片域把“逻辑字段 → XMP/EXIF/IPTC 别名优先级列表 → 写回白名单”写成一张表，并明确只写回跨工具通用字段（描述/评分/标签/时间/位置等），敏感字段（GPS/人脸）默认不写回/不同步；
-  - 写回需要显式权限与失败可观测性（避免 read-only 外部库下 silent fail）。
-- **收益**：避免未来导入/编辑/多工具混用导致的“不可解释覆盖”；把冲突从实现层提前到 IA 规范层。
-- **schema 影响（提案级）**：sidecar/frontmatter 最小 schema 需新增 `field_origin/field_authority/field_merge_policy`（可按对象或按字段字典表达）。
-- **风险**：字段级规则会增加复杂度；需要从少量高价值字段（photo_datetime/location/tags/description 等）开始逐步扩展。
-
-## P1（建议作为下一轮研究/提案深化）
-
-### P1-1：连续流统一为 `stream + event(timestamp,duration,payload)` 原子
-
-- **发现来源**：ActivityWatch buckets/events/heartbeats 数据模型。
-- **要点**：
-  - 每个来源一个 stream/bucket；
-  - heartbeat merge 用于降噪；
-  - 后续再派生 session、daily timeline、memories。
-- **收益**：为未来音频/可穿戴/屏幕活动打基础；切段模型统一。
-- **风险**：早做会引入复杂度；可先写“未来兼容字段”但不落地数据量。
-
-### P1-2：医疗域采用“FHIR 资源命名 + 证据挂载 + 人类可读解释层”
-
-- **发现来源**：Fasten Health（PHR 聚合，FHIR/SMART）。
-- **要点**：
-  - Encounter/Observation/Medication/Condition/Procedure/Coverage/Claim；
-  - 每个资源挂载 evidence（PDF/截图/邮件）；
-  - 解释层：把编码（LOINC/SNOMED 等）翻译成可读描述（先作为文档约定，不做自动化）。
-- **收益**：医疗信息可组合与可追溯；便于生成就医时间线与问题清单。
-- **风险**：FHIR 粒度过细会拖慢落地；需要定义“最小字段集”。
-
-### P1-3：财务域拆分“证据 vs 结构化条目 vs 规则/周期”
-
-- **发现来源**：Firefly III（交易对象分层、规则、recurring）；Actual（local-first）。
-- **要点**：
-  - 票据/账单/邮件作为 evidence；
-  - transaction/subscription/deadline 作为结构化条目；
-  - recurring 是一等对象，驱动任务/提醒派生。
-- **收益**：从“搜索文档找账单”升级为“结构化提醒与对账”。
-- **风险**：跨银行/信用卡导入格式差异大；先文档化 schema 与字段命名即可。
-
-### P1-4：将“管线规则”写成 Paperless 风格的 `triggers + filters + actions` 说明书（stage-aware）
-
-- **发现来源**：Paperless-ngx Workflows（触发器/动作、顺序执行、覆盖/合并语义、定时触发）；以及其社区/issue 对“OCR 尚未完成时字段不可用”的提醒。
-- **要点**：
-  - 规则显式标注 `pipeline_stage`（ingest/parse/ocr/extract/review/final），并列出该阶段可用字段；
-  - 定义单值字段覆盖 vs 多值字段合并的固定语义；
-  - 规则命中后的元数据变更写入审计记录（仅文档约定）。
-- **收益**：可解释、可调试、可长期维护；为未来实现自动化执行器/同步器预留稳定接口。
-- **风险**：文档写得太抽象会失效；需要用“跨域样例”（邮件账单/医疗化验单/截图验证码/照片事件）来校准。
-
-### P1-5：引入“append-only 变更日志 + 资产引用（checksum-in-URL）”作为未来同步/审计格式预案（Receipts 风格）
-
-- **发现来源**：Receipts Space / Receipts App 的 File-over-App 数据格式：`info.json` + `transactions/`（append-only JSON/JSONL，header 含 checksum/可选链式哈希）+ `assets/`（二进制附件，引用携带 checksum/size/mime/name）。
-- **要点**：
-  - 将“元数据变更/纠错/撤销”优先落在 **格式** 层：每次变更追加一条 log entry（而不是覆盖写）；
-  - 资产（PDF/图片/原始附件）用 `asset://` 引用统一表达，引用内嵌 checksum 与大小，实现“引用即校验”；
-  - 预留 `clientId/did` 与 LWW（Lamport clock）语义，但当前阶段只作为文档约定，不落地同步器。
-- **收益**：天然审计轨迹；未来跨设备/外部硬盘/同步盘更稳；导出/迁移时不依赖单一 DB。
-- **风险**：格式一旦确定会影响后续工具链；需要先用 1-2 个域（例如 receipts/bills）做最小试点规范。
-## 2026-05-13 11:20 EDT 新增候选项
-
-### P0-6：标签必须显式声明 `scope` 与 `aggregation_level`
-
-- **发现来源**：Notmuch/afew 的 message vs thread 标签传播；Basic Memory 的 observation/relation 原子化；Immich duplicate groups；Actual/Firefly 的 schedule/transaction 分离。
-- **要点**：
-  - 新增 `scope`: `asset | message | thread | attachment | chunk | observation | relation | schedule | transaction | event | task`。
-  - 新增 `aggregation_level`: `atomic | thread | session | event_cluster | duplicate_cluster | daily_view`。
-  - 规则和字段变更必须声明作用域，避免“线程标签覆盖单封邮件事实”或“duplicate group 标签污染原始资产”。
-- **收益**：跨邮件、聊天、照片、文档、财务、医疗的标签语义更稳定；方便权限裁剪和证据回拉。
-- **schema 影响（提案级）**：所有 `labels` 增加 `scope`；所有 rule/action 增加 `target_scope`。
-- **风险**：字段变多；需要默认值，否则早期手工维护成本上升。
-
-### P0-7：长期记忆采用 atomic `memory_observation` + typed `entity_relation` + version history
-
-- **发现来源**：Basic Memory 的 observations/relations；Memento MCP 的 entity/observation/version history；既有 provenance/claim_state 提案。
-- **要点**：
-  - `memory` 不直接等同 summary；长期层最小单位应是单条事实/偏好/经历/决定/风险。
-  - `entity_relation` 表示 person/place/account/project/device/document/event 之间的 typed edge。
-  - 每次抽取、合并、人工修改、撤回保留版本与 `supersedes/conflicts_with/derived_from`。
-- **收益**：减少“一个 summary 里混入多个事实导致不可纠错”的问题；更适合 5+ 年维护。
-- **schema 影响（提案级）**：新增 `memory_observation`、`entity_relation`、`memory_version` 或等价 sidecar 结构。
-- **风险**：原子化过细会制造噪声；需要 extraction budget 与 review gate。
-
-### P1-6：邮件/生活行政采用 `email_message -> email_thread -> attachment -> derived_item` 分层
-
-- **发现来源**：Notmuch 初始标签、thread 搜索/输出、special tags；afew 的自动标签与 thread 标签传播。
-- **要点**：
-  - `email_message` 保存 Message-ID、headers、MIME、hash、raw evidence。
-  - `email_thread` 保存参与者、主题、时间范围、聚合标签、最高敏感度。
-  - `email_attachment` 保存 PDF/图片/ICS/CSV 等资产引用。
-  - 派生 `bill/receipt/deadline/account_notice/security_notice/contact_update/task/event`。
-- **收益**：旧邮箱与新邮箱都能以 thread 为人类可读视图，同时保留 message 级证据。
-- **风险**：thread 聚合会扩大敏感范围；必须采用 max(child.sensitivity) 并按 message/attachment 裁剪权限。
-
-### P1-7：财务增加 `reconciliation_link`，分离证据、候选项、真实交易与周期义务
-
-- **发现来源**：Actual schedules/rules；Firefly III transaction group/journal/transaction、subscriptions、recurring transactions；Reddit 对 receipt OCR/line-item extraction 难点的讨论。
-- **要点**：
-  - `financial_evidence`：账单 PDF、收据照片、邮件、CSV、银行导出。
-  - `finance_item_candidate`：OCR/邮件/规则抽取候选金额、商户、due date。
-  - `transaction`：人工确认或可靠导入后的真实记账事件。
-  - `subscription_or_bill_schedule`：周期义务/预期支出。
-  - `reconciliation_link`：证据、候选项、交易、schedule 的匹配关系与置信度。
-- **收益**：避免把 OCR 候选误当成财务事实；支持账单提醒和后续对账。
-- **风险**：完整财务模型容易过重；第一版应只做 evidence/candidate/deadline/reconciliation，暂不做自动决策。
-
-### P1-8：关系域拆为 `person_profile`、`relationship_edge`、`interaction`、`relationship_reminder`
-
-- **发现来源**：Monica personal CRM 的 contacts、relationships、activities、reminders、birthday reminders、notes、documents/photos、multiple vaults/labels。
-- **要点**：
-  - `person_profile`：姓名、别名、生日、联系方式、地址、来源、敏感级别。
-  - `relationship_edge`：有方向、有类型、有置信度、有有效期的关系边。
-  - `interaction`：见面、电话、邮件、聊天、礼物、帮助、共同事件等日志。
-  - `relationship_reminder`：生日、纪念日、多久没联系、承诺事项。
-- **收益**：全生活数据库需要长期维护人际背景，不能只作为普通 memory/tag。
-- **风险**：第三方隐私高；关系边必须默认候选、local_only，敏感字段禁止默认同步。
-
-### P1-9：医疗采用 FHIR-inspired 最小视图，而不是完整 FHIR 或纯 OCR 文档
-
-- **发现来源**：HL7 Personal Health Record Format IG 的 PHR data model；Fasten Health 的 self-hosted PHR/FHIR 方向。
-- **要点**：
-  - 最小视图建议覆盖 `Patient/RelatedPerson/Practitioner/Encounter/Appointment/Condition/Observation/DiagnosticReport/MedicationStatement/Immunization/Procedure/AllergyIntolerance/DocumentReference/Claim/Coverage/Device/Provenance`。
-  - `Observation` 必须细分 `lab_result/vital/symptom/wearable/patient_reported`。
-  - 每个医疗对象默认 evidence-backed、local_only、review_required。
-- **收益**：能回答就诊时间线、化验趋势、处方历史、保险/账单关联，而不需要实现完整 EHR。
-- **风险**：医疗自动化风险高；仅用于归档、检索、就诊准备，不做诊断/用药/理赔决策。
-
-### P1-10：媒体/文档去重以 duplicate cluster 为对象，不自动删除原件
-
-- **发现来源**：Immich duplicate utility 的 review、keep preselection、metadata sync/stack；PhotoPrism originals/storage/sidecar 分离；Reddit 对“Immich for documents”的文件夹视图和原件不修改需求。
-- **要点**：
-  - 新增 `duplicate_group_id / representative_asset_id / keep_reason / duplicate_review_state / stack_members`。
-  - `original_path`、`display_folder`、`logical_collection` 分离。
-  - 高敏感 metadata（GPS、人脸、医疗/财务文档类型）默认不自动合并。
-- **收益**：照片、截图、PDF、附件可以统一去重，同时保留原始证据和用户可理解视图。
-- **风险**：自动合并 caption/标签可能扩散错误；默认只生成建议，人工确认后合并。
-
-## 2026-05-13 12:00 EDT 新增候选项（Claude / DeepSeek 信息抽象）
-
-### P0-8：新增 `context_routing_index`，把“常驻上下文”压成路由索引
-
-- **发现来源**：Claude Code layered memory issue（slim index + topic files + semantic search）；Anthropic Skills 的按需加载说明书模式。
-- **要点**：
-  - 常驻层只放主题、关键词、状态、敏感级别、detail_refs，不放完整记忆。
-  - 每个 topic/domain/entity 可有按需加载的 detail file 或 indexed object。
-  - index 条目本身也要有 `sensitivity`、`sync_permission`、`redacted_title`。
-- **收益**：避免 personal database 变成巨大 always-loaded memory；更适合 5+ 年使用。
-- **schema 影响（提案级）**：新增 `context_routing_index`，并在检索流程中先 route 再 pull evidence/detail。
-- **风险**：索引过粗会漏召回；过细会泄露敏感主题或重新膨胀。
-
-### P0-9：chunk 层增加 `contextual_prefix`，支持 Contextual Retrieval
-
-- **发现来源**：Anthropic Contextual Retrieval / Claude Cookbooks：给 chunk 加文档级短上下文，再用于 embedding/BM25/reranking。
-- **要点**：
-  - 每个 chunk 保留 raw text，同时生成检索专用 `contextual_prefix`。
-  - `contextual_prefix` 必须带 `generated_by/generated_at/source_prompt_version`，可重新生成。
-  - 高敏感 chunk 可只做 local BM25 或 redacted prefix，不送外部 embedding。
-- **收益**：减少 chunk 脱离文档/邮件 thread/医疗报告/账单周期后检索失败。
-- **schema 影响（提案级）**：`content_chunk` 新增 `contextual_prefix/document_outline_ref/section_path/bm25_text`。
-- **风险**：LLM prefix 可能引入偏差，不能当作事实层。
-
-### P1-11：新增 `assistant_handoff` 与 `context_event_log`，把 AI 工作状态也作为过程记录
-
-- **发现来源**：Claude Code persistent memory / compaction issues、Anthropic cwc-long-running-agents、MCP Memory Keeper。
-- **要点**：
-  - 在 stop/pre-compact/manual checkpoint 时写 handoff。
-  - 记录 working_goal、decisions、open_questions、evidence_seen、candidate_objects_created、review_items_pending、next_actions。
-  - 与 append-only audit/change log 区分：handoff 是工作状态，audit 是可追责事件。
-- **收益**：长任务、自动化、并行 agent、跨 session 都能恢复上下文，不依赖聊天窗口。
-- **风险**：日志膨胀；handoff 可能包含敏感路径/偏好/项目状态，需要 sensitivity 标注。
-
-### P1-12：新增 `candidate_verification` pass，高风险候选先自检再进入 review
-
-- **发现来源**：DeepSeek-R1 强调 self-verification/reflection；Claude long-running agent 的 evaluator/fresh-context review 模式。
-- **要点**：
-  - candidate extraction 后增加结构化 verification outcome。
-  - 字段包括 `checked_against_evidence_refs`、`contradiction_found`、`missing_evidence`、`confidence_delta`、`recommended_review_state`。
-  - 不保存隐藏推理链，只保存可审计的验证结果。
-- **收益**：医疗、财务、法律、关系候选能更早暴露证据不足或冲突，减轻人工 review 压力。
-- **风险**：自检不能替代人工确认；验证模型也可能错。
-
-### P1-13：检索表示拆成 `latent_summary + sparse_keys + exact_ref`
-
-- **发现来源**：DeepSeek-V3 MLA / FlashMLA 的压缩 KV cache、token-level sparse attention、FP8 KV cache；转译为信息架构类比。
-- **要点**：
-  - `latent_summary` 负责召回和粗路由。
-  - `sparse_keys` 负责实体、日期、金额、代码、关键词过滤。
-  - `exact_ref` 负责回拉原文、页码、OCR region、message id、timestamp。
-- **收益**：不把完整原文常驻或全量 embed 当默认，同时保留精确证据回拉。
-- **风险**：DeepSeek MLA 是模型内部机制，不能机械映射到数据库；这里只作为 P1 级设计启发。
-
-## 2026-05-13 12:21 EDT 新增候选项（field cardinality / medical / email / relationship safety）
-
-### P0-10：新增 `field_contract`，显式声明字段基数与合并语义
-
-- **发现来源**：LinkML slots/cardinality（`required`、`multivalued`、`minimum_cardinality`、`maximum_cardinality`、UML `0..1/1/0..*/1..*`）；Logseq DB properties 的 typed property / multi-value / tag properties 模式。
-- **要点**：
-  - 为高价值字段增加 `field_contract`：`field_name/scope/cardinality/value_type/ordered/merge_semantics/conflict_policy/default_review_state/sensitivity_floor/sync_floor/provenance_required`。
-  - 建议合并语义词表：`replace_by_authority`、`append_unique`、`append_versioned`、`max_sensitivity`、`min_sync_permission`、`union_tags`、`intersect_permissions`、`manual_only`、`derive_only`、`no_merge_cluster_only`。
-  - 先覆盖跨域字段和高风险字段：identity、timestamps、sensitivity、sync_permission、review_state、entity_refs、evidence_refs、medical values、finance amounts、contact fields、relationship edges。
-- **收益**：把“字段能不能多值、冲突时怎么合并、是否需要人工确认”从实现细节提升到 IA 规范层；支持未来规则引擎、导入器、同步器和审计日志。
-- **schema 影响（提案级）**：在 sidecar/frontmatter/rule spec 中引用 `field_contract`；规则动作必须遵守字段的 cardinality 与 merge semantics。
-- **风险**：字段契约过早铺太广会膨胀；第一版只维护 20-40 个核心字段，其他字段继承默认策略。
-
-### P1-14：把 FHIR-inspired 医疗最小视图落成字段矩阵
-
-- **发现来源**：HL7 FHIR R4 `DocumentReference`、`DiagnosticReport`、`Observation`、`Encounter`、`MedicationStatement`。
-- **要点**：
-  - 区分 `medical_document`（证据/文档引用）、`medical_encounter`（就诊上下文）、`diagnostic_report`（报告/面板）、`medical_observation`（原子结果/症状/生命体征/可穿戴数据）、`medication_statement`（用药陈述）。
-  - `Observation` 不只是一段 OCR 文本，应至少有 `status/code/value/unit/reference_range/effective_at_or_period/encounter_ref/derived_from_refs`。
-  - `DiagnosticReport` 负责把多个 observation 组合成报告，并保留 `presented_form_ref` 回拉原始 PDF/截图。
-  - `MedicationStatement` 表示“被报告的用药事实”，不等同于处方、发药或实际服药事件。
-- **收益**：个人 DB 可以回答就诊时间线、化验趋势、处方/用药历史、保险/账单关联，同时避免实现完整 EHR。
-- **schema 影响（提案级）**：P1-9 需要补充最小字段表和默认 review/privacy 策略；医疗对象必须 evidence-backed。
-- **风险**：医疗自动化风险高；默认 `medical_high/local_only/review_required/claim_state=candidate`，只用于归档、检索、就诊准备，不做诊断/用药/理赔决策。
-
-### P1-15：邮件 ingest 分离 `ingest_tags`、`mail_client_flags` 与 thread rollup labels
-
-- **发现来源**：Notmuch initial tagging 的 `new -> post-processing -> inbox/unread` 工作流；Notmuch special tags 对 Maildir flags、attachment、signed、encrypted 的区分。
-- **要点**：
-  - `email_raw_message` 保留 `message_id/thread_key/mailbox_account/folder_or_label_snapshot/header_hash/body_hash/mime_structure_ref/attachment_refs/mail_client_flags/ingest_tags`。
-  - `ingest_tags` 只表示管线状态：`new/parsed/classified/reviewed/archived_only`。
-  - `mail_client_flags` 镜像源邮箱状态，不等同于个人数据库语义。
-  - `email_thread.rollup_labels` 从 child messages/attachments 派生；thread label 不覆盖 message-level facts。
-  - attachment 必须成为独立 evidence asset，并回链 message/thread。
-- **收益**：旧邮箱和新邮箱都能先安全归档，再逐步抽取 bills/receipts/deadlines/account notices/security notices/contact updates/tasks/events。
-- **schema 影响（提案级）**：深化 P1-6，并与 P0-6 的 `scope/aggregation_level`、P0-10 的 `field_contract` 联动。
-- **风险**：thread rollup 会扩大敏感范围；thread 层必须采用 `max_child_sensitivity` 与 `min_child_sync_permission`。
-
-### P1-16：关系图谱增加 consent-aware edge 与 field-level privacy
-
-- **发现来源**：Monica 的 contacts/relationships/reminders/activities/notes/documents/photos/custom fields；Reddit 对 personal CRM / graph-based relationships 的需求；Relaticle 的 dynamic custom fields 与 per-field encryption 模式。
-- **要点**：
-  - `relationship_edge` 增加 `directionality/claim_state/confidence/valid_from/valid_to/evidence_refs/visibility_scope/consent_state/sensitivity/sync_permission`。
-  - `person_profile_field` 增加字段级 `field_sensitivity/field_sync_permission/review_state/cardinality/source`。
-  - 默认值：关系图对象 `local_only`、`review_required`、不进入外部同步/外部检索，除非显式允许。
-- **收益**：生日提醒、联系方式、共同经历、家庭关系、敏感冲突、第三方私人信息可以共享同一图谱，但采用不同权限和检索行为。
-- **schema 影响（提案级）**：深化 P1-8；relationship graph 检索必须按 edge/field 权限裁剪，不只按 person_profile 裁剪。
-- **风险**：隐私字段增加人工 review 成本；但这是全生活数据库必须承担的边界，尤其未来若接入 AI assistant 或 Telegram/Hermes 同步。
-
-## 2026-05-13 13:24 EDT 新增候选项（source snapshots / import runs / error records）
-
-### P0-11：新增 `source_snapshot` / `import_run` / `parse_error_record`，把导入批次和解析失败一等化
-
-- **发现来源**：HPI/Human Programming Interface 的本地文件系统 source modules；cachew 的输入 hash、持久化解析缓存和 `Exception` 可序列化模式；Dogsheep/Datasette 的 source-to-SQLite 个人数据仓库；Reddit DataHoarder 对多硬盘归档、中央索引、hash/EXIF/perceptual hash 日志的实践讨论。
-- **要点**：
-  - `source_snapshot` 表示一批输入来源：`api_export | gdpr_archive | takeout | mailbox_dump | photo_library | filesystem_scan | device_backup | manual_import`。
-  - `import_run` 表示一次导入/重跑/修复：`full | incremental | replay | repair | dry_run`，记录 adapter/parser 版本、输入 snapshot、输出数量、错误数量。
-  - `parse_error_record` 表示解析失败、字段缺失、schema drift、OCR 失败、低置信、重复冲突等；错误不只写日志，而是可检索、可审阅、可在解析器升级后重跑的质量对象。
-  - 所有 evidence/assets/chunks/candidates/errors 都应能回链到 `import_run_id`，再回链到 `source_snapshot_id`。
-- **收益**：旧邮箱、Google Takeout、Apple Photos/Immich、旧硬盘、健康导出、银行/账单导出都能可复现导入；未来修复 parser 后可以精准重跑失败项，而不是重新扫全库。
-- **schema 影响（提案级）**：在 inbox/raw_evidence 前后新增 source/import 层；`provenance.record` 可引用 `import_run_id`，避免重复塞入 adapter/parser 细节。
-- **风险**：元数据膨胀；source snapshot 与 error message 可能泄露路径、账户、邮箱 header、医疗术语，默认 `local_only` 并继承 affected evidence 的最高 sensitivity。
-
-### P0-12：为长期可变实体引入可选 `object_anchor + attribute_claim` 模型
-
-- **发现来源**：Perkeep permanode/claim schema：不可变内容寻址 blob 之上，用稳定 permanode 承接可变对象，用 `add-attribute / set-attribute / del-attribute` claim 追加表达变更。
-- **要点**：
-  - `object_anchor` 只提供稳定身份，不直接承载会被覆盖的事实。
-  - `attribute_claim` 表示 set/add/del/merge/retract，带 `claim_date`、`claim_state`、`review_state`、`field_contract`、`evidence_refs`、`created_by`。
-  - 当前对象视图是把 claims 按 field_contract 和时间顺序 fold 出来的 materialized view。
-  - 优先用于多年可变且高风险对象：`person_profile`、`relationship_edge`、`account`、`medical_condition`、`medication_statement`、`subscription_schedule`、`property`、`vehicle`、`device`。
-- **收益**：避免“长期对象被覆盖写坏后不知道历史状态”的问题；支持撤回、纠错、冲突保留、时间有效性和审计回放。
-- **schema 影响（提案级）**：深化 P0-4 provenance、P0-5 field authority/merge policy、P0-10 field_contract；不是替代现有对象表，而是为高风险对象提供变更底座。
-- **风险**：第一版实现可能过重；建议先作为 IA 约定和少数对象试点，不要求所有低风险对象都 claim 化。
-
-### P1-17：新增只读 `local_data_warehouse_view` / `exploratory_index_view` 作为审阅与调试层
-
-- **发现来源**：Dogsheep 把 GitHub/Reddit/Twitter/photos 等个人数据导入 SQLite，Datasette 提供可浏览 API/UI，sqlite-utils 支持从 JSON/CSV 自动建表、FTS、lookup table。
-- **要点**：
-  - 从 file-first truth layer 和 confirmed/candidate objects 生成只读 SQLite/FTS/BM25 视图。
-  - 视图必须记录 `built_from_import_run_ids`、`schema_version`、`generated_at`、`field_allowlist`。
-  - 该视图服务于人工审阅、调试、临时分析和批量质量检查，不是唯一真相。
-- **收益**：比直接浏览文件夹或主 DB 更适合发现导入缺口、重复项、OCR 失败、邮件附件漏解析、照片 EXIF 异常、账单周期异常。
-- **schema 影响（提案级）**：新增可重建索引/视图层；与 retrieval 的 exact search / FTS / BM25 兼容。
-- **风险**：share/subset 视图可能泄露 GPS、人脸、医疗、财务、关系图谱；必须默认本地、只读、字段白名单。
-
-### P1-18：为离线硬盘/NAS/冷归档新增 `storage_location_ref` 与 `availability_state`
-
-- **发现来源**：Reddit DataHoarder 关于大型个人归档检索的讨论：用户经常依赖中央目录、文件 hash、EXIF、perceptual hash、硬盘编号/序列号、路径索引来定位离线文件。
-- **要点**：
-  - `raw_evidence` / `media_asset` 增加 `storage_location_ref`。
-  - `storage_location` 包含 `volume_id`、`volume_label`、`device_serial_hash`、`original_path`、`normalized_path`、`availability_state`、`last_seen_at`、`last_verified_at`。
-  - `availability_state`: `online | offline_indexed | missing | cold_archive`。
-  - 检索结果必须能说明“可立即打开 / 索引可见但原件离线 / 原件缺失 / 需要连接某块盘”。
-- **收益**：让旧硬盘、家庭历史照片、税务归档、扫描件、NAS 冷数据进入同一检索体系，而不是只能依赖模糊记忆。
-- **schema 影响（提案级）**：深化 raw evidence 的 location/provenance；影响 retrieval UI 和 source evidence pullback。
-- **风险**：路径和设备信息本身敏感；设备序列号应 hash，路径展示应支持 redaction，离线索引必须用 `last_verified_at` 避免误导。
-
-## 2026-05-13 14:25 EDT 新增候选项（local archive / index cache / citation gate）
-
-### P0-13：明确 `truth / cache / export` 三层，防止检索缓存变成事实来源
-
-- **发现来源**：msgvault 的 SQLite system of record + Parquet analytics cache + local vectors；ArchiveBox 的普通文件夹 + SQLite/JSON 元数据 + 可直接浏览的 snapshot 文件夹。
-- **要点**：
-  - `truth layer`：原始文件、sidecar、confirmed personal memory objects。
-  - `cache layer`：FTS/BM25、OCR cache、thumbnail、analytics parquet/duckdb、vector embeddings。
-  - `export layer`：Markdown/wiki/static HTML/CSV/JSON bundle。
-  - cache 必须可重建，并带 `built_from_refs/generated_at/schema_or_model_version`。
-  - export 默认字段白名单和 redaction，不直接暴露高敏 evidence。
-- **收益**：以后可以优化搜索和分析而不破坏 file-first/local-first 真相层；也能避免 vector/Parquet/索引库锁定。
-- **schema 影响（提案级）**：新增 `storage_layer: truth | cache | export`；派生索引/embedding/cache 对象新增 `built_from_refs`。
-- **风险**：多一层概念会增加文档复杂度；个人版应只把它作为原则和少数字段，不要做完整数据平台。
-
-### P0-14：高风险候选新增 `citation_refs / citation_state` 审阅门
-
-- **发现来源**：Reddit 上用 Obsidian 管理复杂医疗记录的讨论强调 OCR、LLM 跳过源文件、医疗隐私和源文引用问题；GitEHR 强调医疗记录的审计与可追溯。
-- **要点**：
-  - 医疗、财务、法律、账号安全、关系类候选必须能回到 evidence。
-  - `citation_state`: `none | file_level | page_level | region_level | excerpt_level`。
-  - `citation_refs` 至少包含 `evidence_ref/page_or_message_id/excerpt/extraction_method`。
-  - 没有 citation 的高风险候选只能保持 `candidate`，不能进入 confirmed。
-- **收益**：降低 LLM/OCR 在高风险领域制造“看似确定事实”的风险；review 时能快速回看原件。
-- **schema 影响（提案级）**：扩展 `candidate_item` 与 high-risk domain objects；与 `evidence_refs` 不冲突，`citation_refs` 是更细粒度证据定位。
-- **风险**：引用粒度越细维护成本越高；第一版建议只强制 file/page/message_id，OCR region 以后再加。
-
-### P1-19：把 `raw_evidence / media_asset` 文件组织升级为轻量 `evidence_packet`
-
-- **发现来源**：ArchiveBox 每个 snapshot 保留多种输出文件和 `index.json`；msgvault 对附件 content-addressed 存储；Reddit 大型个人归档讨论强调普通目录、hash、EXIF、中央索引仍然最可靠。
-- **要点**：
-  - 一个高价值 evidence 可以组织为 `original + meta sidecar + extracted text/OCR + preview + optional redacted copy`。
-  - `artifact_role`: `original | sidecar | extracted_text | ocr | preview | redacted | index_record | embedding`。
-  - preview/OCR/redacted 都是派生物，权限不得低于 original，除非显式脱敏确认。
-- **收益**：原件、OCR、预览和脱敏副本不会散落；应用不可用时，文件夹仍可理解和迁移。
-- **schema 影响（提案级）**：不替换 `raw_evidence/media_asset`，只增加文件夹约定和 `derived_refs`。
-- **风险**：派生文件增加存储与泄露面；需要清楚标注 original vs derived。
-
-### P1-20：通信归档区分 `source_native labels` 与 `personal labels`
-
-- **发现来源**：msgvault 对 Gmail/IMAP/MBOX/Apple Mail/聊天来源保留 source、conversation、message、raw MIME、labels、attachments；此前 Notmuch/afew 研究也支持 message/thread 分层。
-- **要点**：
-  - `labels_from_source`：Gmail label、IMAP folder、聊天 app 状态、历史导出标签。
-  - `personal_labels`：个人记忆库语义标签，如 bill、receipt、security_notice、relationship、travel。
-  - `pipeline_state`：new/parsed/classified/reviewed/archived_only，不与上述两类混用。
-- **收益**：旧邮箱和新邮箱都能安全导入；来源标签不会污染个人语义分类。
-- **schema 影响（提案级）**：深化 email/chat 最小字段；可推广到 photo albums、filesystem folders、cloud labels。
-- **风险**：字段略增；但比把所有标签塞进一个 `tags` 数组更可维护。
-
-## 2026-05-13 15:26 EDT 新增候选项（canonical membership / evidence packets）
-
-### P0-15：新增 `source_membership`，把来源容器/标签/相册从个人语义标签中拆出
-
-- **发现来源**：Birdclaw 的 canonical tweets/profiles + account-scoped timeline/collection edges；Discrawl 的 channel/thread/message/attachment 分层与 Git snapshot 发布白名单；此前 Notmuch/afew 与 msgvault 对 source labels 和 personal labels 的区分。
-- **要点**：
-  - 同一个 canonical object 可能出现在多个来源容器里：旧邮箱文件夹、新 Gmail label、聊天 thread、Apple Photos album、云盘目录、社交收藏、导出批次。
-  - `source_membership` 只表达“来源系统如何组织它”，不表达个人数据库的长期语义。
-  - 个人语义继续用 `personal_labels` / `semantic_type` / `domain` 表达。
-  - 最小字段：
+  - å¼ºåˆ¶åŒºåˆ† `occurred_at` ä¸Ž `ingested_at`ï¼ˆPaperless çš„ date created vs date added æ¨¡å¼ï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šè·¨åŸŸï¼ˆç…§ç‰‡/é‚®ä»¶/å¥åº·/è´¢åŠ¡ï¼‰ä¸€è‡´ï¼›ä¾¿äºŽé•¿æœŸæ¼”è¿›ä¸Žæ£€ç´¢è¿‡æ»¤ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `labels` ç»“æž„ï¼›ä»»ä½•æ´¾ç”Ÿå¯¹è±¡å¿…é¡»å¸¦ `evidence_refs`ã€‚
+- **é£Žé™©**ï¼šç»´åº¦è¿‡å¤šä¼šå¯¼è‡´äººå·¥ç»´æŠ¤æˆæœ¬ä¸Šå‡ï¼›éœ€è¦é»˜è®¤å€¼ä¸Žâ€œé€æ­¥è¡¥å…¨â€ç­–ç•¥ï¼ˆINBOX å®¡é˜…é—¨ï¼‰ã€‚
+
+### P0-2ï¼šè¯æ®å±‚ä¸å¯å˜ + sidecar å…ƒæ•°æ®ä¸ºä¸€ç­‰å…¬æ°‘ï¼ˆç…§ç‰‡ä¼˜å…ˆ XMPï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šImmich XMP sidecar è¯»å†™ä¸Žä½œä¸šï¼›PhotoPrism çš„ metadata åˆå¹¶ä¸Ž YAML sidecar å¯¼å‡ºã€‚
+- **è¦ç‚¹**ï¼š
+  - åŽŸæ–‡ä»¶ï¼ˆevidence/assetsï¼‰å°½é‡ä¸ä¿®æ”¹ï¼›
+  - å…ƒæ•°æ®ï¼ˆæ ‡ç­¾ã€æè¿°ã€OCR å¼•ç”¨ã€æ•æ„Ÿçº§åˆ«ã€å®¡é˜…çŠ¶æ€ã€åŽ»é‡ä¿¡æ¯ï¼‰å†™ sidecarï¼ˆç…§ç‰‡ç”¨ XMPï¼›å…¶ä»–ç”¨ `*.meta.json`ï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šé™ä½Ž DB lock-inï¼›é•¿æœŸè¿ç§»/å·¥å…·äº’æ“ä½œæ›´å¼ºã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šå®šä¹‰ sidecar çš„æœ€å°é”®é›†åˆï¼ˆ`id/kind/provenance/timestamps/labels/evidence_refs`ï¼‰ã€‚
+- **é£Žé™©**ï¼šsidecar ä¸Žæœªæ¥ç´¢å¼•/ç¼“å­˜çš„ä¸€è‡´æ€§ä¸Žå†²çªç­–ç•¥éœ€è¦å…ˆå†™æ¸…æ¥šã€‚
+
+### P0-3ï¼šç»Ÿä¸€ `review_state=inbox` å®¡é˜…é—¨ï¼ˆè·¨åŸŸé€šç”¨ï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šPaperless-ngx çš„ INBOX æ ‡ç­¾å·¥ä½œæµï¼›ç¤¾åŒºç»éªŒâ€œè‡ªåŠ¨åŒ–åªåšåˆ°å»ºè®®ï¼Œæœ€ç»ˆè¦äººå·¥ç¡®è®¤â€ã€‚
+- **è¦ç‚¹**ï¼š
+  - é»˜è®¤è¿›å…¥ `inbox`ï¼›
+  - è‡ªåŠ¨æŠ½å–åªäº§ç”Ÿâ€œå€™é€‰æ´¾ç”Ÿå¯¹è±¡â€ï¼ˆtask/event/factï¼‰ï¼Œåœ¨ `reviewed` å‰ä¸è¿›å…¥æ ¸å¿ƒè®°å¿†/å…³é”®ç´¢å¼•ã€‚
+- **æ”¶ç›Š**ï¼šé•¿æœŸæ­£ç¡®æ€§ã€é™ä½Žå™ªå£°ä¸Žè¯¯å½’ç±»ï¼›ç‰¹åˆ«é€‚åˆåŒ»ç–—/è´¢åŠ¡ã€‚
+- **é£Žé™©**ï¼šéœ€è¦æ˜Žç¡®â€œå¤šé•¿æ—¶é—´ä¸å®¡é˜…çš„å¤„ç†ç­–ç•¥â€ï¼ˆæé†’/é™çº§/å½’æ¡£ï¼‰ã€‚
+
+### P0-4ï¼šæŠŠâ€œæº¯æº/å®¡è®¡ï¼ˆprovenanceï¼‰â€æå‡ä¸ºä¸€ç­‰å­—æ®µï¼ˆåŒºåˆ†æ–‡æ¡£æº¯æº vs è®°å½•æº¯æºï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šFHIR `DocumentReference` å¼ºè°ƒâ€œè¢«å¼•ç”¨æ–‡æ¡£çš„æº¯æºâ€ä¸Žâ€œå¼•ç”¨è®°å½•æœ¬èº«çš„æº¯æºâ€æ˜¯ä¸¤å¥—ä¿¡æ¯ï¼›W3C PROVï¼ˆentity/activity/agentï¼‰ï¼›ä»¥åŠ Paperless çš„ç®¡çº¿é˜¶æ®µå·®å¼‚å¸¦æ¥çš„å¯è§£é‡Šæ€§éœ€æ±‚ã€‚
+- **è¦ç‚¹**ï¼š
+  - åœ¨ sidecar/frontmatter çš„æœ€å° schema ä¸­åŠ å…¥ `provenance.document` ä¸Ž `provenance.record`ï¼›
+  - æŠ½å–ç»“è®ºç±»æ¡ç›®æ–°å¢ž `claim_state`ï¼ˆcandidate/confirmed/disputed/superseded/retractedï¼‰ä¸Ž `validity`ï¼ˆvalid_from/valid_to/last_confirmed_atï¼‰ï¼›
+  - ä»»ä½•æ´¾ç”Ÿå¯¹è±¡å¼ºåˆ¶ `evidence_refs`ï¼ˆå¯å›žæº¯åˆ°æ–‡ä»¶ hash + é¡µç /åŒºåŸŸ/æ¶ˆæ¯ id ç­‰ï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šåŒ»ç–—/æ³•å¾‹/è´¢åŠ¡åœºæ™¯å¯è§£é‡Šã€å¯çº é”™ï¼›é•¿æœŸç»´æŠ¤ä¸ä¼šâ€œå¿˜äº†è¿™æ¡ä¿¡æ¯æ€Žä¹ˆæ¥çš„â€ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šsidecar/frontmatter æœ€å°å­—æ®µé›†éœ€è¦æ‰©å±•ï¼›å¹¶æ˜Žç¡® provenance å­—æ®µä¹Ÿå— `sensitivity/sync_permission` çº¦æŸã€‚
+- **é£Žé™©**ï¼šprovenance æœ¬èº«å¯èƒ½æ³„éœ²æ•æ„Ÿå…ƒä¿¡æ¯ï¼ˆè·¯å¾„/æœºæž„/é‚®ç®±/è®¾å¤‡åï¼‰ï¼›éœ€è¦é»˜è®¤æœ€å°åŒ–ä¸Žè„±æ•ç­–ç•¥ã€‚
+
+### P0-5ï¼šå­—æ®µçº§â€œæƒå¨/åˆå¹¶è¯­ä¹‰â€æ˜¾å¼åŒ–ï¼ˆå°¤å…¶æ˜¯ç…§ç‰‡ XMP çš„åˆ«åä¼˜å…ˆçº§ä¸Žå†™å›žè§„åˆ™ï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šPhotoPrism å¯¹ XMP çš„ä¸¤æ¡è§£æžè·¯å¾„ä¸Ž sidecar reader é™åˆ¶ï¼ˆembedded ç» ExifTool vs `.xmp` PoC readerï¼‰ï¼›Immich å¯¹ XMP sidecar çš„â€œåˆå¹¶å†™å›žï¼ˆmergeï¼‰â€ä¸Žå­—æ®µä¼˜å…ˆçº§é¡ºåºã€å‘½åè§„åˆ™ã€DISCOVER/SYNC ä½œä¸šã€‚
+- **è¦ç‚¹**ï¼š
+  - ä¸ºå…³é”®å…ƒæ•°æ®å­—æ®µè¡¥é½ä¸‰ä»¶äº‹ï¼š`field_origin`ï¼ˆæ¥è‡ª embedded/sidecar/OCR/æ‰‹å·¥/æŠ½å–â€¦ï¼‰ã€`field_authority`ï¼ˆå†²çªæ—¶è°æ˜¯é»˜è®¤çœŸç›¸ï¼‰ã€`field_merge_policy`ï¼ˆè¦†ç›–/åˆå¹¶/ä¼˜å…ˆçº§åˆ—è¡¨ï¼‰ï¼›
+  - ç…§ç‰‡åŸŸæŠŠâ€œé€»è¾‘å­—æ®µ â†’ XMP/EXIF/IPTC åˆ«åä¼˜å…ˆçº§åˆ—è¡¨ â†’ å†™å›žç™½åå•â€å†™æˆä¸€å¼ è¡¨ï¼Œå¹¶æ˜Žç¡®åªå†™å›žè·¨å·¥å…·é€šç”¨å­—æ®µï¼ˆæè¿°/è¯„åˆ†/æ ‡ç­¾/æ—¶é—´/ä½ç½®ç­‰ï¼‰ï¼Œæ•æ„Ÿå­—æ®µï¼ˆGPS/äººè„¸ï¼‰é»˜è®¤ä¸å†™å›ž/ä¸åŒæ­¥ï¼›
+  - å†™å›žéœ€è¦æ˜¾å¼æƒé™ä¸Žå¤±è´¥å¯è§‚æµ‹æ€§ï¼ˆé¿å… read-only å¤–éƒ¨åº“ä¸‹ silent failï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šé¿å…æœªæ¥å¯¼å…¥/ç¼–è¾‘/å¤šå·¥å…·æ··ç”¨å¯¼è‡´çš„â€œä¸å¯è§£é‡Šè¦†ç›–â€ï¼›æŠŠå†²çªä»Žå®žçŽ°å±‚æå‰åˆ° IA è§„èŒƒå±‚ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šsidecar/frontmatter æœ€å° schema éœ€æ–°å¢ž `field_origin/field_authority/field_merge_policy`ï¼ˆå¯æŒ‰å¯¹è±¡æˆ–æŒ‰å­—æ®µå­—å…¸è¡¨è¾¾ï¼‰ã€‚
+- **é£Žé™©**ï¼šå­—æ®µçº§è§„åˆ™ä¼šå¢žåŠ å¤æ‚åº¦ï¼›éœ€è¦ä»Žå°‘é‡é«˜ä»·å€¼å­—æ®µï¼ˆphoto_datetime/location/tags/description ç­‰ï¼‰å¼€å§‹é€æ­¥æ‰©å±•ã€‚
+
+## P1ï¼ˆå»ºè®®ä½œä¸ºä¸‹ä¸€è½®ç ”ç©¶/ææ¡ˆæ·±åŒ–ï¼‰
+
+### P1-1ï¼šè¿žç»­æµç»Ÿä¸€ä¸º `stream + event(timestamp,duration,payload)` åŽŸå­
+
+- **å‘çŽ°æ¥æº**ï¼šActivityWatch buckets/events/heartbeats æ•°æ®æ¨¡åž‹ã€‚
+- **è¦ç‚¹**ï¼š
+  - æ¯ä¸ªæ¥æºä¸€ä¸ª stream/bucketï¼›
+  - heartbeat merge ç”¨äºŽé™å™ªï¼›
+  - åŽç»­å†æ´¾ç”Ÿ sessionã€daily timelineã€memoriesã€‚
+- **æ”¶ç›Š**ï¼šä¸ºæœªæ¥éŸ³é¢‘/å¯ç©¿æˆ´/å±å¹•æ´»åŠ¨æ‰“åŸºç¡€ï¼›åˆ‡æ®µæ¨¡åž‹ç»Ÿä¸€ã€‚
+- **é£Žé™©**ï¼šæ—©åšä¼šå¼•å…¥å¤æ‚åº¦ï¼›å¯å…ˆå†™â€œæœªæ¥å…¼å®¹å­—æ®µâ€ä½†ä¸è½åœ°æ•°æ®é‡ã€‚
+
+### P1-2ï¼šåŒ»ç–—åŸŸé‡‡ç”¨â€œFHIR èµ„æºå‘½å + è¯æ®æŒ‚è½½ + äººç±»å¯è¯»è§£é‡Šå±‚â€
+
+- **å‘çŽ°æ¥æº**ï¼šFasten Healthï¼ˆPHR èšåˆï¼ŒFHIR/SMARTï¼‰ã€‚
+- **è¦ç‚¹**ï¼š
+  - Encounter/Observation/Medication/Condition/Procedure/Coverage/Claimï¼›
+  - æ¯ä¸ªèµ„æºæŒ‚è½½ evidenceï¼ˆPDF/æˆªå›¾/é‚®ä»¶ï¼‰ï¼›
+  - è§£é‡Šå±‚ï¼šæŠŠç¼–ç ï¼ˆLOINC/SNOMED ç­‰ï¼‰ç¿»è¯‘æˆå¯è¯»æè¿°ï¼ˆå…ˆä½œä¸ºæ–‡æ¡£çº¦å®šï¼Œä¸åšè‡ªåŠ¨åŒ–ï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šåŒ»ç–—ä¿¡æ¯å¯ç»„åˆä¸Žå¯è¿½æº¯ï¼›ä¾¿äºŽç”Ÿæˆå°±åŒ»æ—¶é—´çº¿ä¸Žé—®é¢˜æ¸…å•ã€‚
+- **é£Žé™©**ï¼šFHIR ç²’åº¦è¿‡ç»†ä¼šæ‹–æ…¢è½åœ°ï¼›éœ€è¦å®šä¹‰â€œæœ€å°å­—æ®µé›†â€ã€‚
+
+### P1-3ï¼šè´¢åŠ¡åŸŸæ‹†åˆ†â€œè¯æ® vs ç»“æž„åŒ–æ¡ç›® vs è§„åˆ™/å‘¨æœŸâ€
+
+- **å‘çŽ°æ¥æº**ï¼šFirefly IIIï¼ˆäº¤æ˜“å¯¹è±¡åˆ†å±‚ã€è§„åˆ™ã€recurringï¼‰ï¼›Actualï¼ˆlocal-firstï¼‰ã€‚
+- **è¦ç‚¹**ï¼š
+  - ç¥¨æ®/è´¦å•/é‚®ä»¶ä½œä¸º evidenceï¼›
+  - transaction/subscription/deadline ä½œä¸ºç»“æž„åŒ–æ¡ç›®ï¼›
+  - recurring æ˜¯ä¸€ç­‰å¯¹è±¡ï¼Œé©±åŠ¨ä»»åŠ¡/æé†’æ´¾ç”Ÿã€‚
+- **æ”¶ç›Š**ï¼šä»Žâ€œæœç´¢æ–‡æ¡£æ‰¾è´¦å•â€å‡çº§ä¸ºâ€œç»“æž„åŒ–æé†’ä¸Žå¯¹è´¦â€ã€‚
+- **é£Žé™©**ï¼šè·¨é“¶è¡Œ/ä¿¡ç”¨å¡å¯¼å…¥æ ¼å¼å·®å¼‚å¤§ï¼›å…ˆæ–‡æ¡£åŒ– schema ä¸Žå­—æ®µå‘½åå³å¯ã€‚
+
+### P1-4ï¼šå°†â€œç®¡çº¿è§„åˆ™â€å†™æˆ Paperless é£Žæ ¼çš„ `triggers + filters + actions` è¯´æ˜Žä¹¦ï¼ˆstage-awareï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šPaperless-ngx Workflowsï¼ˆè§¦å‘å™¨/åŠ¨ä½œã€é¡ºåºæ‰§è¡Œã€è¦†ç›–/åˆå¹¶è¯­ä¹‰ã€å®šæ—¶è§¦å‘ï¼‰ï¼›ä»¥åŠå…¶ç¤¾åŒº/issue å¯¹â€œOCR å°šæœªå®Œæˆæ—¶å­—æ®µä¸å¯ç”¨â€çš„æé†’ã€‚
+- **è¦ç‚¹**ï¼š
+  - è§„åˆ™æ˜¾å¼æ ‡æ³¨ `pipeline_stage`ï¼ˆingest/parse/ocr/extract/review/finalï¼‰ï¼Œå¹¶åˆ—å‡ºè¯¥é˜¶æ®µå¯ç”¨å­—æ®µï¼›
+  - å®šä¹‰å•å€¼å­—æ®µè¦†ç›– vs å¤šå€¼å­—æ®µåˆå¹¶çš„å›ºå®šè¯­ä¹‰ï¼›
+  - è§„åˆ™å‘½ä¸­åŽçš„å…ƒæ•°æ®å˜æ›´å†™å…¥å®¡è®¡è®°å½•ï¼ˆä»…æ–‡æ¡£çº¦å®šï¼‰ã€‚
+- **æ”¶ç›Š**ï¼šå¯è§£é‡Šã€å¯è°ƒè¯•ã€å¯é•¿æœŸç»´æŠ¤ï¼›ä¸ºæœªæ¥å®žçŽ°è‡ªåŠ¨åŒ–æ‰§è¡Œå™¨/åŒæ­¥å™¨é¢„ç•™ç¨³å®šæŽ¥å£ã€‚
+- **é£Žé™©**ï¼šæ–‡æ¡£å†™å¾—å¤ªæŠ½è±¡ä¼šå¤±æ•ˆï¼›éœ€è¦ç”¨â€œè·¨åŸŸæ ·ä¾‹â€ï¼ˆé‚®ä»¶è´¦å•/åŒ»ç–—åŒ–éªŒå•/æˆªå›¾éªŒè¯ç /ç…§ç‰‡äº‹ä»¶ï¼‰æ¥æ ¡å‡†ã€‚
+
+### P1-5ï¼šå¼•å…¥â€œappend-only å˜æ›´æ—¥å¿— + èµ„äº§å¼•ç”¨ï¼ˆchecksum-in-URLï¼‰â€ä½œä¸ºæœªæ¥åŒæ­¥/å®¡è®¡æ ¼å¼é¢„æ¡ˆï¼ˆReceipts é£Žæ ¼ï¼‰
+
+- **å‘çŽ°æ¥æº**ï¼šReceipts Space / Receipts App çš„ File-over-App æ•°æ®æ ¼å¼ï¼š`info.json` + `transactions/`ï¼ˆappend-only JSON/JSONLï¼Œheader å« checksum/å¯é€‰é“¾å¼å“ˆå¸Œï¼‰+ `assets/`ï¼ˆäºŒè¿›åˆ¶é™„ä»¶ï¼Œå¼•ç”¨æºå¸¦ checksum/size/mime/nameï¼‰ã€‚
+- **è¦ç‚¹**ï¼š
+  - å°†â€œå…ƒæ•°æ®å˜æ›´/çº é”™/æ’¤é”€â€ä¼˜å…ˆè½åœ¨ **æ ¼å¼** å±‚ï¼šæ¯æ¬¡å˜æ›´è¿½åŠ ä¸€æ¡ log entryï¼ˆè€Œä¸æ˜¯è¦†ç›–å†™ï¼‰ï¼›
+  - èµ„äº§ï¼ˆPDF/å›¾ç‰‡/åŽŸå§‹é™„ä»¶ï¼‰ç”¨ `asset://` å¼•ç”¨ç»Ÿä¸€è¡¨è¾¾ï¼Œå¼•ç”¨å†…åµŒ checksum ä¸Žå¤§å°ï¼Œå®žçŽ°â€œå¼•ç”¨å³æ ¡éªŒâ€ï¼›
+  - é¢„ç•™ `clientId/did` ä¸Ž LWWï¼ˆLamport clockï¼‰è¯­ä¹‰ï¼Œä½†å½“å‰é˜¶æ®µåªä½œä¸ºæ–‡æ¡£çº¦å®šï¼Œä¸è½åœ°åŒæ­¥å™¨ã€‚
+- **æ”¶ç›Š**ï¼šå¤©ç„¶å®¡è®¡è½¨è¿¹ï¼›æœªæ¥è·¨è®¾å¤‡/å¤–éƒ¨ç¡¬ç›˜/åŒæ­¥ç›˜æ›´ç¨³ï¼›å¯¼å‡º/è¿ç§»æ—¶ä¸ä¾èµ–å•ä¸€ DBã€‚
+- **é£Žé™©**ï¼šæ ¼å¼ä¸€æ—¦ç¡®å®šä¼šå½±å“åŽç»­å·¥å…·é“¾ï¼›éœ€è¦å…ˆç”¨ 1-2 ä¸ªåŸŸï¼ˆä¾‹å¦‚ receipts/billsï¼‰åšæœ€å°è¯•ç‚¹è§„èŒƒã€‚
+## 2026-05-13 11:20 EDT æ–°å¢žå€™é€‰é¡¹
+
+### P0-6ï¼šæ ‡ç­¾å¿…é¡»æ˜¾å¼å£°æ˜Ž `scope` ä¸Ž `aggregation_level`
+
+- **å‘çŽ°æ¥æº**ï¼šNotmuch/afew çš„ message vs thread æ ‡ç­¾ä¼ æ’­ï¼›Basic Memory çš„ observation/relation åŽŸå­åŒ–ï¼›Immich duplicate groupsï¼›Actual/Firefly çš„ schedule/transaction åˆ†ç¦»ã€‚
+- **è¦ç‚¹**ï¼š
+  - æ–°å¢ž `scope`: `asset | message | thread | attachment | chunk | observation | relation | schedule | transaction | event | task`ã€‚
+  - æ–°å¢ž `aggregation_level`: `atomic | thread | session | event_cluster | duplicate_cluster | daily_view`ã€‚
+  - è§„åˆ™å’Œå­—æ®µå˜æ›´å¿…é¡»å£°æ˜Žä½œç”¨åŸŸï¼Œé¿å…â€œçº¿ç¨‹æ ‡ç­¾è¦†ç›–å•å°é‚®ä»¶äº‹å®žâ€æˆ–â€œduplicate group æ ‡ç­¾æ±¡æŸ“åŽŸå§‹èµ„äº§â€ã€‚
+- **æ”¶ç›Š**ï¼šè·¨é‚®ä»¶ã€èŠå¤©ã€ç…§ç‰‡ã€æ–‡æ¡£ã€è´¢åŠ¡ã€åŒ»ç–—çš„æ ‡ç­¾è¯­ä¹‰æ›´ç¨³å®šï¼›æ–¹ä¾¿æƒé™è£å‰ªå’Œè¯æ®å›žæ‹‰ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ‰€æœ‰ `labels` å¢žåŠ  `scope`ï¼›æ‰€æœ‰ rule/action å¢žåŠ  `target_scope`ã€‚
+- **é£Žé™©**ï¼šå­—æ®µå˜å¤šï¼›éœ€è¦é»˜è®¤å€¼ï¼Œå¦åˆ™æ—©æœŸæ‰‹å·¥ç»´æŠ¤æˆæœ¬ä¸Šå‡ã€‚
+
+### P0-7ï¼šé•¿æœŸè®°å¿†é‡‡ç”¨ atomic `memory_observation` + typed `entity_relation` + version history
+
+- **å‘çŽ°æ¥æº**ï¼šBasic Memory çš„ observations/relationsï¼›Memento MCP çš„ entity/observation/version historyï¼›æ—¢æœ‰ provenance/claim_state ææ¡ˆã€‚
+- **è¦ç‚¹**ï¼š
+  - `memory` ä¸ç›´æŽ¥ç­‰åŒ summaryï¼›é•¿æœŸå±‚æœ€å°å•ä½åº”æ˜¯å•æ¡äº‹å®ž/åå¥½/ç»åŽ†/å†³å®š/é£Žé™©ã€‚
+  - `entity_relation` è¡¨ç¤º person/place/account/project/device/document/event ä¹‹é—´çš„ typed edgeã€‚
+  - æ¯æ¬¡æŠ½å–ã€åˆå¹¶ã€äººå·¥ä¿®æ”¹ã€æ’¤å›žä¿ç•™ç‰ˆæœ¬ä¸Ž `supersedes/conflicts_with/derived_from`ã€‚
+- **æ”¶ç›Š**ï¼šå‡å°‘â€œä¸€ä¸ª summary é‡Œæ··å…¥å¤šä¸ªäº‹å®žå¯¼è‡´ä¸å¯çº é”™â€çš„é—®é¢˜ï¼›æ›´é€‚åˆ 5+ å¹´ç»´æŠ¤ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `memory_observation`ã€`entity_relation`ã€`memory_version` æˆ–ç­‰ä»· sidecar ç»“æž„ã€‚
+- **é£Žé™©**ï¼šåŽŸå­åŒ–è¿‡ç»†ä¼šåˆ¶é€ å™ªå£°ï¼›éœ€è¦ extraction budget ä¸Ž review gateã€‚
+
+### P1-6ï¼šé‚®ä»¶/ç”Ÿæ´»è¡Œæ”¿é‡‡ç”¨ `email_message -> email_thread -> attachment -> derived_item` åˆ†å±‚
+
+- **å‘çŽ°æ¥æº**ï¼šNotmuch åˆå§‹æ ‡ç­¾ã€thread æœç´¢/è¾“å‡ºã€special tagsï¼›afew çš„è‡ªåŠ¨æ ‡ç­¾ä¸Ž thread æ ‡ç­¾ä¼ æ’­ã€‚
+- **è¦ç‚¹**ï¼š
+  - `email_message` ä¿å­˜ Message-IDã€headersã€MIMEã€hashã€raw evidenceã€‚
+  - `email_thread` ä¿å­˜å‚ä¸Žè€…ã€ä¸»é¢˜ã€æ—¶é—´èŒƒå›´ã€èšåˆæ ‡ç­¾ã€æœ€é«˜æ•æ„Ÿåº¦ã€‚
+  - `email_attachment` ä¿å­˜ PDF/å›¾ç‰‡/ICS/CSV ç­‰èµ„äº§å¼•ç”¨ã€‚
+  - æ´¾ç”Ÿ `bill/receipt/deadline/account_notice/security_notice/contact_update/task/event`ã€‚
+- **æ”¶ç›Š**ï¼šæ—§é‚®ç®±ä¸Žæ–°é‚®ç®±éƒ½èƒ½ä»¥ thread ä¸ºäººç±»å¯è¯»è§†å›¾ï¼ŒåŒæ—¶ä¿ç•™ message çº§è¯æ®ã€‚
+- **é£Žé™©**ï¼šthread èšåˆä¼šæ‰©å¤§æ•æ„ŸèŒƒå›´ï¼›å¿…é¡»é‡‡ç”¨ max(child.sensitivity) å¹¶æŒ‰ message/attachment è£å‰ªæƒé™ã€‚
+
+### P1-7ï¼šè´¢åŠ¡å¢žåŠ  `reconciliation_link`ï¼Œåˆ†ç¦»è¯æ®ã€å€™é€‰é¡¹ã€çœŸå®žäº¤æ˜“ä¸Žå‘¨æœŸä¹‰åŠ¡
+
+- **å‘çŽ°æ¥æº**ï¼šActual schedules/rulesï¼›Firefly III transaction group/journal/transactionã€subscriptionsã€recurring transactionsï¼›Reddit å¯¹ receipt OCR/line-item extraction éš¾ç‚¹çš„è®¨è®ºã€‚
+- **è¦ç‚¹**ï¼š
+  - `financial_evidence`ï¼šè´¦å• PDFã€æ”¶æ®ç…§ç‰‡ã€é‚®ä»¶ã€CSVã€é“¶è¡Œå¯¼å‡ºã€‚
+  - `finance_item_candidate`ï¼šOCR/é‚®ä»¶/è§„åˆ™æŠ½å–å€™é€‰é‡‘é¢ã€å•†æˆ·ã€due dateã€‚
+  - `transaction`ï¼šäººå·¥ç¡®è®¤æˆ–å¯é å¯¼å…¥åŽçš„çœŸå®žè®°è´¦äº‹ä»¶ã€‚
+  - `subscription_or_bill_schedule`ï¼šå‘¨æœŸä¹‰åŠ¡/é¢„æœŸæ”¯å‡ºã€‚
+  - `reconciliation_link`ï¼šè¯æ®ã€å€™é€‰é¡¹ã€äº¤æ˜“ã€schedule çš„åŒ¹é…å…³ç³»ä¸Žç½®ä¿¡åº¦ã€‚
+- **æ”¶ç›Š**ï¼šé¿å…æŠŠ OCR å€™é€‰è¯¯å½“æˆè´¢åŠ¡äº‹å®žï¼›æ”¯æŒè´¦å•æé†’å’ŒåŽç»­å¯¹è´¦ã€‚
+- **é£Žé™©**ï¼šå®Œæ•´è´¢åŠ¡æ¨¡åž‹å®¹æ˜“è¿‡é‡ï¼›ç¬¬ä¸€ç‰ˆåº”åªåš evidence/candidate/deadline/reconciliationï¼Œæš‚ä¸åšè‡ªåŠ¨å†³ç­–ã€‚
+
+### P1-8ï¼šå…³ç³»åŸŸæ‹†ä¸º `person_profile`ã€`relationship_edge`ã€`interaction`ã€`relationship_reminder`
+
+- **å‘çŽ°æ¥æº**ï¼šMonica personal CRM çš„ contactsã€relationshipsã€activitiesã€remindersã€birthday remindersã€notesã€documents/photosã€multiple vaults/labelsã€‚
+- **è¦ç‚¹**ï¼š
+  - `person_profile`ï¼šå§“åã€åˆ«åã€ç”Ÿæ—¥ã€è”ç³»æ–¹å¼ã€åœ°å€ã€æ¥æºã€æ•æ„Ÿçº§åˆ«ã€‚
+  - `relationship_edge`ï¼šæœ‰æ–¹å‘ã€æœ‰ç±»åž‹ã€æœ‰ç½®ä¿¡åº¦ã€æœ‰æœ‰æ•ˆæœŸçš„å…³ç³»è¾¹ã€‚
+  - `interaction`ï¼šè§é¢ã€ç”µè¯ã€é‚®ä»¶ã€èŠå¤©ã€ç¤¼ç‰©ã€å¸®åŠ©ã€å…±åŒäº‹ä»¶ç­‰æ—¥å¿—ã€‚
+  - `relationship_reminder`ï¼šç”Ÿæ—¥ã€çºªå¿µæ—¥ã€å¤šä¹…æ²¡è”ç³»ã€æ‰¿è¯ºäº‹é¡¹ã€‚
+- **æ”¶ç›Š**ï¼šå…¨ç”Ÿæ´»æ•°æ®åº“éœ€è¦é•¿æœŸç»´æŠ¤äººé™…èƒŒæ™¯ï¼Œä¸èƒ½åªä½œä¸ºæ™®é€š memory/tagã€‚
+- **é£Žé™©**ï¼šç¬¬ä¸‰æ–¹éšç§é«˜ï¼›å…³ç³»è¾¹å¿…é¡»é»˜è®¤å€™é€‰ã€local_onlyï¼Œæ•æ„Ÿå­—æ®µç¦æ­¢é»˜è®¤åŒæ­¥ã€‚
+
+### P1-9ï¼šåŒ»ç–—é‡‡ç”¨ FHIR-inspired æœ€å°è§†å›¾ï¼Œè€Œä¸æ˜¯å®Œæ•´ FHIR æˆ–çº¯ OCR æ–‡æ¡£
+
+- **å‘çŽ°æ¥æº**ï¼šHL7 Personal Health Record Format IG çš„ PHR data modelï¼›Fasten Health çš„ self-hosted PHR/FHIR æ–¹å‘ã€‚
+- **è¦ç‚¹**ï¼š
+  - æœ€å°è§†å›¾å»ºè®®è¦†ç›– `Patient/RelatedPerson/Practitioner/Encounter/Appointment/Condition/Observation/DiagnosticReport/MedicationStatement/Immunization/Procedure/AllergyIntolerance/DocumentReference/Claim/Coverage/Device/Provenance`ã€‚
+  - `Observation` å¿…é¡»ç»†åˆ† `lab_result/vital/symptom/wearable/patient_reported`ã€‚
+  - æ¯ä¸ªåŒ»ç–—å¯¹è±¡é»˜è®¤ evidence-backedã€local_onlyã€review_requiredã€‚
+- **æ”¶ç›Š**ï¼šèƒ½å›žç­”å°±è¯Šæ—¶é—´çº¿ã€åŒ–éªŒè¶‹åŠ¿ã€å¤„æ–¹åŽ†å²ã€ä¿é™©/è´¦å•å…³è”ï¼Œè€Œä¸éœ€è¦å®žçŽ°å®Œæ•´ EHRã€‚
+- **é£Žé™©**ï¼šåŒ»ç–—è‡ªåŠ¨åŒ–é£Žé™©é«˜ï¼›ä»…ç”¨äºŽå½’æ¡£ã€æ£€ç´¢ã€å°±è¯Šå‡†å¤‡ï¼Œä¸åšè¯Šæ–­/ç”¨è¯/ç†èµ”å†³ç­–ã€‚
+
+### P1-10ï¼šåª’ä½“/æ–‡æ¡£åŽ»é‡ä»¥ duplicate cluster ä¸ºå¯¹è±¡ï¼Œä¸è‡ªåŠ¨åˆ é™¤åŽŸä»¶
+
+- **å‘çŽ°æ¥æº**ï¼šImmich duplicate utility çš„ reviewã€keep preselectionã€metadata sync/stackï¼›PhotoPrism originals/storage/sidecar åˆ†ç¦»ï¼›Reddit å¯¹â€œImmich for documentsâ€çš„æ–‡ä»¶å¤¹è§†å›¾å’ŒåŽŸä»¶ä¸ä¿®æ”¹éœ€æ±‚ã€‚
+- **è¦ç‚¹**ï¼š
+  - æ–°å¢ž `duplicate_group_id / representative_asset_id / keep_reason / duplicate_review_state / stack_members`ã€‚
+  - `original_path`ã€`display_folder`ã€`logical_collection` åˆ†ç¦»ã€‚
+  - é«˜æ•æ„Ÿ metadataï¼ˆGPSã€äººè„¸ã€åŒ»ç–—/è´¢åŠ¡æ–‡æ¡£ç±»åž‹ï¼‰é»˜è®¤ä¸è‡ªåŠ¨åˆå¹¶ã€‚
+- **æ”¶ç›Š**ï¼šç…§ç‰‡ã€æˆªå›¾ã€PDFã€é™„ä»¶å¯ä»¥ç»Ÿä¸€åŽ»é‡ï¼ŒåŒæ—¶ä¿ç•™åŽŸå§‹è¯æ®å’Œç”¨æˆ·å¯ç†è§£è§†å›¾ã€‚
+- **é£Žé™©**ï¼šè‡ªåŠ¨åˆå¹¶ caption/æ ‡ç­¾å¯èƒ½æ‰©æ•£é”™è¯¯ï¼›é»˜è®¤åªç”Ÿæˆå»ºè®®ï¼Œäººå·¥ç¡®è®¤åŽåˆå¹¶ã€‚
+
+## 2026-05-13 12:00 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆClaude / DeepSeek ä¿¡æ¯æŠ½è±¡ï¼‰
+
+### P0-8ï¼šæ–°å¢ž `context_routing_index`ï¼ŒæŠŠâ€œå¸¸é©»ä¸Šä¸‹æ–‡â€åŽ‹æˆè·¯ç”±ç´¢å¼•
+
+- **å‘çŽ°æ¥æº**ï¼šClaude Code layered memory issueï¼ˆslim index + topic files + semantic searchï¼‰ï¼›Anthropic Skills çš„æŒ‰éœ€åŠ è½½è¯´æ˜Žä¹¦æ¨¡å¼ã€‚
+- **è¦ç‚¹**ï¼š
+  - å¸¸é©»å±‚åªæ”¾ä¸»é¢˜ã€å…³é”®è¯ã€çŠ¶æ€ã€æ•æ„Ÿçº§åˆ«ã€detail_refsï¼Œä¸æ”¾å®Œæ•´è®°å¿†ã€‚
+  - æ¯ä¸ª topic/domain/entity å¯æœ‰æŒ‰éœ€åŠ è½½çš„ detail file æˆ– indexed objectã€‚
+  - index æ¡ç›®æœ¬èº«ä¹Ÿè¦æœ‰ `sensitivity`ã€`sync_permission`ã€`redacted_title`ã€‚
+- **æ”¶ç›Š**ï¼šé¿å… personal database å˜æˆå·¨å¤§ always-loaded memoryï¼›æ›´é€‚åˆ 5+ å¹´ä½¿ç”¨ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `context_routing_index`ï¼Œå¹¶åœ¨æ£€ç´¢æµç¨‹ä¸­å…ˆ route å† pull evidence/detailã€‚
+- **é£Žé™©**ï¼šç´¢å¼•è¿‡ç²—ä¼šæ¼å¬å›žï¼›è¿‡ç»†ä¼šæ³„éœ²æ•æ„Ÿä¸»é¢˜æˆ–é‡æ–°è†¨èƒ€ã€‚
+
+### P0-9ï¼šchunk å±‚å¢žåŠ  `contextual_prefix`ï¼Œæ”¯æŒ Contextual Retrieval
+
+- **å‘çŽ°æ¥æº**ï¼šAnthropic Contextual Retrieval / Claude Cookbooksï¼šç»™ chunk åŠ æ–‡æ¡£çº§çŸ­ä¸Šä¸‹æ–‡ï¼Œå†ç”¨äºŽ embedding/BM25/rerankingã€‚
+- **è¦ç‚¹**ï¼š
+  - æ¯ä¸ª chunk ä¿ç•™ raw textï¼ŒåŒæ—¶ç”Ÿæˆæ£€ç´¢ä¸“ç”¨ `contextual_prefix`ã€‚
+  - `contextual_prefix` å¿…é¡»å¸¦ `generated_by/generated_at/source_prompt_version`ï¼Œå¯é‡æ–°ç”Ÿæˆã€‚
+  - é«˜æ•æ„Ÿ chunk å¯åªåš local BM25 æˆ– redacted prefixï¼Œä¸é€å¤–éƒ¨ embeddingã€‚
+- **æ”¶ç›Š**ï¼šå‡å°‘ chunk è„±ç¦»æ–‡æ¡£/é‚®ä»¶ thread/åŒ»ç–—æŠ¥å‘Š/è´¦å•å‘¨æœŸåŽæ£€ç´¢å¤±è´¥ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼š`content_chunk` æ–°å¢ž `contextual_prefix/document_outline_ref/section_path/bm25_text`ã€‚
+- **é£Žé™©**ï¼šLLM prefix å¯èƒ½å¼•å…¥åå·®ï¼Œä¸èƒ½å½“ä½œäº‹å®žå±‚ã€‚
+
+### P1-11ï¼šæ–°å¢ž `assistant_handoff` ä¸Ž `context_event_log`ï¼ŒæŠŠ AI å·¥ä½œçŠ¶æ€ä¹Ÿä½œä¸ºè¿‡ç¨‹è®°å½•
+
+- **å‘çŽ°æ¥æº**ï¼šClaude Code persistent memory / compaction issuesã€Anthropic cwc-long-running-agentsã€MCP Memory Keeperã€‚
+- **è¦ç‚¹**ï¼š
+  - åœ¨ stop/pre-compact/manual checkpoint æ—¶å†™ handoffã€‚
+  - è®°å½• working_goalã€decisionsã€open_questionsã€evidence_seenã€candidate_objects_createdã€review_items_pendingã€next_actionsã€‚
+  - ä¸Ž append-only audit/change log åŒºåˆ†ï¼šhandoff æ˜¯å·¥ä½œçŠ¶æ€ï¼Œaudit æ˜¯å¯è¿½è´£äº‹ä»¶ã€‚
+- **æ”¶ç›Š**ï¼šé•¿ä»»åŠ¡ã€è‡ªåŠ¨åŒ–ã€å¹¶è¡Œ agentã€è·¨ session éƒ½èƒ½æ¢å¤ä¸Šä¸‹æ–‡ï¼Œä¸ä¾èµ–èŠå¤©çª—å£ã€‚
+- **é£Žé™©**ï¼šæ—¥å¿—è†¨èƒ€ï¼›handoff å¯èƒ½åŒ…å«æ•æ„Ÿè·¯å¾„/åå¥½/é¡¹ç›®çŠ¶æ€ï¼Œéœ€è¦ sensitivity æ ‡æ³¨ã€‚
+
+### P1-12ï¼šæ–°å¢ž `candidate_verification` passï¼Œé«˜é£Žé™©å€™é€‰å…ˆè‡ªæ£€å†è¿›å…¥ review
+
+- **å‘çŽ°æ¥æº**ï¼šDeepSeek-R1 å¼ºè°ƒ self-verification/reflectionï¼›Claude long-running agent çš„ evaluator/fresh-context review æ¨¡å¼ã€‚
+- **è¦ç‚¹**ï¼š
+  - candidate extraction åŽå¢žåŠ ç»“æž„åŒ– verification outcomeã€‚
+  - å­—æ®µåŒ…æ‹¬ `checked_against_evidence_refs`ã€`contradiction_found`ã€`missing_evidence`ã€`confidence_delta`ã€`recommended_review_state`ã€‚
+  - ä¸ä¿å­˜éšè—æŽ¨ç†é“¾ï¼Œåªä¿å­˜å¯å®¡è®¡çš„éªŒè¯ç»“æžœã€‚
+- **æ”¶ç›Š**ï¼šåŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€å…³ç³»å€™é€‰èƒ½æ›´æ—©æš´éœ²è¯æ®ä¸è¶³æˆ–å†²çªï¼Œå‡è½»äººå·¥ review åŽ‹åŠ›ã€‚
+- **é£Žé™©**ï¼šè‡ªæ£€ä¸èƒ½æ›¿ä»£äººå·¥ç¡®è®¤ï¼›éªŒè¯æ¨¡åž‹ä¹Ÿå¯èƒ½é”™ã€‚
+
+### P1-13ï¼šæ£€ç´¢è¡¨ç¤ºæ‹†æˆ `latent_summary + sparse_keys + exact_ref`
+
+- **å‘çŽ°æ¥æº**ï¼šDeepSeek-V3 MLA / FlashMLA çš„åŽ‹ç¼© KV cacheã€token-level sparse attentionã€FP8 KV cacheï¼›è½¬è¯‘ä¸ºä¿¡æ¯æž¶æž„ç±»æ¯”ã€‚
+- **è¦ç‚¹**ï¼š
+  - `latent_summary` è´Ÿè´£å¬å›žå’Œç²—è·¯ç”±ã€‚
+  - `sparse_keys` è´Ÿè´£å®žä½“ã€æ—¥æœŸã€é‡‘é¢ã€ä»£ç ã€å…³é”®è¯è¿‡æ»¤ã€‚
+  - `exact_ref` è´Ÿè´£å›žæ‹‰åŽŸæ–‡ã€é¡µç ã€OCR regionã€message idã€timestampã€‚
+- **æ”¶ç›Š**ï¼šä¸æŠŠå®Œæ•´åŽŸæ–‡å¸¸é©»æˆ–å…¨é‡ embed å½“é»˜è®¤ï¼ŒåŒæ—¶ä¿ç•™ç²¾ç¡®è¯æ®å›žæ‹‰ã€‚
+- **é£Žé™©**ï¼šDeepSeek MLA æ˜¯æ¨¡åž‹å†…éƒ¨æœºåˆ¶ï¼Œä¸èƒ½æœºæ¢°æ˜ å°„åˆ°æ•°æ®åº“ï¼›è¿™é‡Œåªä½œä¸º P1 çº§è®¾è®¡å¯å‘ã€‚
+
+## 2026-05-13 12:21 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆfield cardinality / medical / email / relationship safetyï¼‰
+
+### P0-10ï¼šæ–°å¢ž `field_contract`ï¼Œæ˜¾å¼å£°æ˜Žå­—æ®µåŸºæ•°ä¸Žåˆå¹¶è¯­ä¹‰
+
+- **å‘çŽ°æ¥æº**ï¼šLinkML slots/cardinalityï¼ˆ`required`ã€`multivalued`ã€`minimum_cardinality`ã€`maximum_cardinality`ã€UML `0..1/1/0..*/1..*`ï¼‰ï¼›Logseq DB properties çš„ typed property / multi-value / tag properties æ¨¡å¼ã€‚
+- **è¦ç‚¹**ï¼š
+  - ä¸ºé«˜ä»·å€¼å­—æ®µå¢žåŠ  `field_contract`ï¼š`field_name/scope/cardinality/value_type/ordered/merge_semantics/conflict_policy/default_review_state/sensitivity_floor/sync_floor/provenance_required`ã€‚
+  - å»ºè®®åˆå¹¶è¯­ä¹‰è¯è¡¨ï¼š`replace_by_authority`ã€`append_unique`ã€`append_versioned`ã€`max_sensitivity`ã€`min_sync_permission`ã€`union_tags`ã€`intersect_permissions`ã€`manual_only`ã€`derive_only`ã€`no_merge_cluster_only`ã€‚
+  - å…ˆè¦†ç›–è·¨åŸŸå­—æ®µå’Œé«˜é£Žé™©å­—æ®µï¼šidentityã€timestampsã€sensitivityã€sync_permissionã€review_stateã€entity_refsã€evidence_refsã€medical valuesã€finance amountsã€contact fieldsã€relationship edgesã€‚
+- **æ”¶ç›Š**ï¼šæŠŠâ€œå­—æ®µèƒ½ä¸èƒ½å¤šå€¼ã€å†²çªæ—¶æ€Žä¹ˆåˆå¹¶ã€æ˜¯å¦éœ€è¦äººå·¥ç¡®è®¤â€ä»Žå®žçŽ°ç»†èŠ‚æå‡åˆ° IA è§„èŒƒå±‚ï¼›æ”¯æŒæœªæ¥è§„åˆ™å¼•æ“Žã€å¯¼å…¥å™¨ã€åŒæ­¥å™¨å’Œå®¡è®¡æ—¥å¿—ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šåœ¨ sidecar/frontmatter/rule spec ä¸­å¼•ç”¨ `field_contract`ï¼›è§„åˆ™åŠ¨ä½œå¿…é¡»éµå®ˆå­—æ®µçš„ cardinality ä¸Ž merge semanticsã€‚
+- **é£Žé™©**ï¼šå­—æ®µå¥‘çº¦è¿‡æ—©é“ºå¤ªå¹¿ä¼šè†¨èƒ€ï¼›ç¬¬ä¸€ç‰ˆåªç»´æŠ¤ 20-40 ä¸ªæ ¸å¿ƒå­—æ®µï¼Œå…¶ä»–å­—æ®µç»§æ‰¿é»˜è®¤ç­–ç•¥ã€‚
+
+### P1-14ï¼šæŠŠ FHIR-inspired åŒ»ç–—æœ€å°è§†å›¾è½æˆå­—æ®µçŸ©é˜µ
+
+- **å‘çŽ°æ¥æº**ï¼šHL7 FHIR R4 `DocumentReference`ã€`DiagnosticReport`ã€`Observation`ã€`Encounter`ã€`MedicationStatement`ã€‚
+- **è¦ç‚¹**ï¼š
+  - åŒºåˆ† `medical_document`ï¼ˆè¯æ®/æ–‡æ¡£å¼•ç”¨ï¼‰ã€`medical_encounter`ï¼ˆå°±è¯Šä¸Šä¸‹æ–‡ï¼‰ã€`diagnostic_report`ï¼ˆæŠ¥å‘Š/é¢æ¿ï¼‰ã€`medical_observation`ï¼ˆåŽŸå­ç»“æžœ/ç—‡çŠ¶/ç”Ÿå‘½ä½“å¾/å¯ç©¿æˆ´æ•°æ®ï¼‰ã€`medication_statement`ï¼ˆç”¨è¯é™ˆè¿°ï¼‰ã€‚
+  - `Observation` ä¸åªæ˜¯ä¸€æ®µ OCR æ–‡æœ¬ï¼Œåº”è‡³å°‘æœ‰ `status/code/value/unit/reference_range/effective_at_or_period/encounter_ref/derived_from_refs`ã€‚
+  - `DiagnosticReport` è´Ÿè´£æŠŠå¤šä¸ª observation ç»„åˆæˆæŠ¥å‘Šï¼Œå¹¶ä¿ç•™ `presented_form_ref` å›žæ‹‰åŽŸå§‹ PDF/æˆªå›¾ã€‚
+  - `MedicationStatement` è¡¨ç¤ºâ€œè¢«æŠ¥å‘Šçš„ç”¨è¯äº‹å®žâ€ï¼Œä¸ç­‰åŒäºŽå¤„æ–¹ã€å‘è¯æˆ–å®žé™…æœè¯äº‹ä»¶ã€‚
+- **æ”¶ç›Š**ï¼šä¸ªäºº DB å¯ä»¥å›žç­”å°±è¯Šæ—¶é—´çº¿ã€åŒ–éªŒè¶‹åŠ¿ã€å¤„æ–¹/ç”¨è¯åŽ†å²ã€ä¿é™©/è´¦å•å…³è”ï¼ŒåŒæ—¶é¿å…å®žçŽ°å®Œæ•´ EHRã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šP1-9 éœ€è¦è¡¥å……æœ€å°å­—æ®µè¡¨å’Œé»˜è®¤ review/privacy ç­–ç•¥ï¼›åŒ»ç–—å¯¹è±¡å¿…é¡» evidence-backedã€‚
+- **é£Žé™©**ï¼šåŒ»ç–—è‡ªåŠ¨åŒ–é£Žé™©é«˜ï¼›é»˜è®¤ `medical_high/local_only/review_required/claim_state=candidate`ï¼Œåªç”¨äºŽå½’æ¡£ã€æ£€ç´¢ã€å°±è¯Šå‡†å¤‡ï¼Œä¸åšè¯Šæ–­/ç”¨è¯/ç†èµ”å†³ç­–ã€‚
+
+### P1-15ï¼šé‚®ä»¶ ingest åˆ†ç¦» `ingest_tags`ã€`mail_client_flags` ä¸Ž thread rollup labels
+
+- **å‘çŽ°æ¥æº**ï¼šNotmuch initial tagging çš„ `new -> post-processing -> inbox/unread` å·¥ä½œæµï¼›Notmuch special tags å¯¹ Maildir flagsã€attachmentã€signedã€encrypted çš„åŒºåˆ†ã€‚
+- **è¦ç‚¹**ï¼š
+  - `email_raw_message` ä¿ç•™ `message_id/thread_key/mailbox_account/folder_or_label_snapshot/header_hash/body_hash/mime_structure_ref/attachment_refs/mail_client_flags/ingest_tags`ã€‚
+  - `ingest_tags` åªè¡¨ç¤ºç®¡çº¿çŠ¶æ€ï¼š`new/parsed/classified/reviewed/archived_only`ã€‚
+  - `mail_client_flags` é•œåƒæºé‚®ç®±çŠ¶æ€ï¼Œä¸ç­‰åŒäºŽä¸ªäººæ•°æ®åº“è¯­ä¹‰ã€‚
+  - `email_thread.rollup_labels` ä»Ž child messages/attachments æ´¾ç”Ÿï¼›thread label ä¸è¦†ç›– message-level factsã€‚
+  - attachment å¿…é¡»æˆä¸ºç‹¬ç«‹ evidence assetï¼Œå¹¶å›žé“¾ message/threadã€‚
+- **æ”¶ç›Š**ï¼šæ—§é‚®ç®±å’Œæ–°é‚®ç®±éƒ½èƒ½å…ˆå®‰å…¨å½’æ¡£ï¼Œå†é€æ­¥æŠ½å– bills/receipts/deadlines/account notices/security notices/contact updates/tasks/eventsã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– P1-6ï¼Œå¹¶ä¸Ž P0-6 çš„ `scope/aggregation_level`ã€P0-10 çš„ `field_contract` è”åŠ¨ã€‚
+- **é£Žé™©**ï¼šthread rollup ä¼šæ‰©å¤§æ•æ„ŸèŒƒå›´ï¼›thread å±‚å¿…é¡»é‡‡ç”¨ `max_child_sensitivity` ä¸Ž `min_child_sync_permission`ã€‚
+
+### P1-16ï¼šå…³ç³»å›¾è°±å¢žåŠ  consent-aware edge ä¸Ž field-level privacy
+
+- **å‘çŽ°æ¥æº**ï¼šMonica çš„ contacts/relationships/reminders/activities/notes/documents/photos/custom fieldsï¼›Reddit å¯¹ personal CRM / graph-based relationships çš„éœ€æ±‚ï¼›Relaticle çš„ dynamic custom fields ä¸Ž per-field encryption æ¨¡å¼ã€‚
+- **è¦ç‚¹**ï¼š
+  - `relationship_edge` å¢žåŠ  `directionality/claim_state/confidence/valid_from/valid_to/evidence_refs/visibility_scope/consent_state/sensitivity/sync_permission`ã€‚
+  - `person_profile_field` å¢žåŠ å­—æ®µçº§ `field_sensitivity/field_sync_permission/review_state/cardinality/source`ã€‚
+  - é»˜è®¤å€¼ï¼šå…³ç³»å›¾å¯¹è±¡ `local_only`ã€`review_required`ã€ä¸è¿›å…¥å¤–éƒ¨åŒæ­¥/å¤–éƒ¨æ£€ç´¢ï¼Œé™¤éžæ˜¾å¼å…è®¸ã€‚
+- **æ”¶ç›Š**ï¼šç”Ÿæ—¥æé†’ã€è”ç³»æ–¹å¼ã€å…±åŒç»åŽ†ã€å®¶åº­å…³ç³»ã€æ•æ„Ÿå†²çªã€ç¬¬ä¸‰æ–¹ç§äººä¿¡æ¯å¯ä»¥å…±äº«åŒä¸€å›¾è°±ï¼Œä½†é‡‡ç”¨ä¸åŒæƒé™å’Œæ£€ç´¢è¡Œä¸ºã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– P1-8ï¼›relationship graph æ£€ç´¢å¿…é¡»æŒ‰ edge/field æƒé™è£å‰ªï¼Œä¸åªæŒ‰ person_profile è£å‰ªã€‚
+- **é£Žé™©**ï¼šéšç§å­—æ®µå¢žåŠ äººå·¥ review æˆæœ¬ï¼›ä½†è¿™æ˜¯å…¨ç”Ÿæ´»æ•°æ®åº“å¿…é¡»æ‰¿æ‹…çš„è¾¹ç•Œï¼Œå°¤å…¶æœªæ¥è‹¥æŽ¥å…¥ AI assistant æˆ– Telegram/Hermes åŒæ­¥ã€‚
+
+## 2026-05-13 13:24 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆsource snapshots / import runs / error recordsï¼‰
+
+### P0-11ï¼šæ–°å¢ž `source_snapshot` / `import_run` / `parse_error_record`ï¼ŒæŠŠå¯¼å…¥æ‰¹æ¬¡å’Œè§£æžå¤±è´¥ä¸€ç­‰åŒ–
+
+- **å‘çŽ°æ¥æº**ï¼šHPI/Human Programming Interface çš„æœ¬åœ°æ–‡ä»¶ç³»ç»Ÿ source modulesï¼›cachew çš„è¾“å…¥ hashã€æŒä¹…åŒ–è§£æžç¼“å­˜å’Œ `Exception` å¯åºåˆ—åŒ–æ¨¡å¼ï¼›Dogsheep/Datasette çš„ source-to-SQLite ä¸ªäººæ•°æ®ä»“åº“ï¼›Reddit DataHoarder å¯¹å¤šç¡¬ç›˜å½’æ¡£ã€ä¸­å¤®ç´¢å¼•ã€hash/EXIF/perceptual hash æ—¥å¿—çš„å®žè·µè®¨è®ºã€‚
+- **è¦ç‚¹**ï¼š
+  - `source_snapshot` è¡¨ç¤ºä¸€æ‰¹è¾“å…¥æ¥æºï¼š`api_export | gdpr_archive | takeout | mailbox_dump | photo_library | filesystem_scan | device_backup | manual_import`ã€‚
+  - `import_run` è¡¨ç¤ºä¸€æ¬¡å¯¼å…¥/é‡è·‘/ä¿®å¤ï¼š`full | incremental | replay | repair | dry_run`ï¼Œè®°å½• adapter/parser ç‰ˆæœ¬ã€è¾“å…¥ snapshotã€è¾“å‡ºæ•°é‡ã€é”™è¯¯æ•°é‡ã€‚
+  - `parse_error_record` è¡¨ç¤ºè§£æžå¤±è´¥ã€å­—æ®µç¼ºå¤±ã€schema driftã€OCR å¤±è´¥ã€ä½Žç½®ä¿¡ã€é‡å¤å†²çªç­‰ï¼›é”™è¯¯ä¸åªå†™æ—¥å¿—ï¼Œè€Œæ˜¯å¯æ£€ç´¢ã€å¯å®¡é˜…ã€å¯åœ¨è§£æžå™¨å‡çº§åŽé‡è·‘çš„è´¨é‡å¯¹è±¡ã€‚
+  - æ‰€æœ‰ evidence/assets/chunks/candidates/errors éƒ½åº”èƒ½å›žé“¾åˆ° `import_run_id`ï¼Œå†å›žé“¾åˆ° `source_snapshot_id`ã€‚
+- **æ”¶ç›Š**ï¼šæ—§é‚®ç®±ã€Google Takeoutã€Apple Photos/Immichã€æ—§ç¡¬ç›˜ã€å¥åº·å¯¼å‡ºã€é“¶è¡Œ/è´¦å•å¯¼å‡ºéƒ½èƒ½å¯å¤çŽ°å¯¼å…¥ï¼›æœªæ¥ä¿®å¤ parser åŽå¯ä»¥ç²¾å‡†é‡è·‘å¤±è´¥é¡¹ï¼Œè€Œä¸æ˜¯é‡æ–°æ‰«å…¨åº“ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šåœ¨ inbox/raw_evidence å‰åŽæ–°å¢ž source/import å±‚ï¼›`provenance.record` å¯å¼•ç”¨ `import_run_id`ï¼Œé¿å…é‡å¤å¡žå…¥ adapter/parser ç»†èŠ‚ã€‚
+- **é£Žé™©**ï¼šå…ƒæ•°æ®è†¨èƒ€ï¼›source snapshot ä¸Ž error message å¯èƒ½æ³„éœ²è·¯å¾„ã€è´¦æˆ·ã€é‚®ç®± headerã€åŒ»ç–—æœ¯è¯­ï¼Œé»˜è®¤ `local_only` å¹¶ç»§æ‰¿ affected evidence çš„æœ€é«˜ sensitivityã€‚
+
+### P0-12ï¼šä¸ºé•¿æœŸå¯å˜å®žä½“å¼•å…¥å¯é€‰ `object_anchor + attribute_claim` æ¨¡åž‹
+
+- **å‘çŽ°æ¥æº**ï¼šPerkeep permanode/claim schemaï¼šä¸å¯å˜å†…å®¹å¯»å€ blob ä¹‹ä¸Šï¼Œç”¨ç¨³å®š permanode æ‰¿æŽ¥å¯å˜å¯¹è±¡ï¼Œç”¨ `add-attribute / set-attribute / del-attribute` claim è¿½åŠ è¡¨è¾¾å˜æ›´ã€‚
+- **è¦ç‚¹**ï¼š
+  - `object_anchor` åªæä¾›ç¨³å®šèº«ä»½ï¼Œä¸ç›´æŽ¥æ‰¿è½½ä¼šè¢«è¦†ç›–çš„äº‹å®žã€‚
+  - `attribute_claim` è¡¨ç¤º set/add/del/merge/retractï¼Œå¸¦ `claim_date`ã€`claim_state`ã€`review_state`ã€`field_contract`ã€`evidence_refs`ã€`created_by`ã€‚
+  - å½“å‰å¯¹è±¡è§†å›¾æ˜¯æŠŠ claims æŒ‰ field_contract å’Œæ—¶é—´é¡ºåº fold å‡ºæ¥çš„ materialized viewã€‚
+  - ä¼˜å…ˆç”¨äºŽå¤šå¹´å¯å˜ä¸”é«˜é£Žé™©å¯¹è±¡ï¼š`person_profile`ã€`relationship_edge`ã€`account`ã€`medical_condition`ã€`medication_statement`ã€`subscription_schedule`ã€`property`ã€`vehicle`ã€`device`ã€‚
+- **æ”¶ç›Š**ï¼šé¿å…â€œé•¿æœŸå¯¹è±¡è¢«è¦†ç›–å†™ååŽä¸çŸ¥é“åŽ†å²çŠ¶æ€â€çš„é—®é¢˜ï¼›æ”¯æŒæ’¤å›žã€çº é”™ã€å†²çªä¿ç•™ã€æ—¶é—´æœ‰æ•ˆæ€§å’Œå®¡è®¡å›žæ”¾ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– P0-4 provenanceã€P0-5 field authority/merge policyã€P0-10 field_contractï¼›ä¸æ˜¯æ›¿ä»£çŽ°æœ‰å¯¹è±¡è¡¨ï¼Œè€Œæ˜¯ä¸ºé«˜é£Žé™©å¯¹è±¡æä¾›å˜æ›´åº•åº§ã€‚
+- **é£Žé™©**ï¼šç¬¬ä¸€ç‰ˆå®žçŽ°å¯èƒ½è¿‡é‡ï¼›å»ºè®®å…ˆä½œä¸º IA çº¦å®šå’Œå°‘æ•°å¯¹è±¡è¯•ç‚¹ï¼Œä¸è¦æ±‚æ‰€æœ‰ä½Žé£Žé™©å¯¹è±¡éƒ½ claim åŒ–ã€‚
+
+### P1-17ï¼šæ–°å¢žåªè¯» `local_data_warehouse_view` / `exploratory_index_view` ä½œä¸ºå®¡é˜…ä¸Žè°ƒè¯•å±‚
+
+- **å‘çŽ°æ¥æº**ï¼šDogsheep æŠŠ GitHub/Reddit/Twitter/photos ç­‰ä¸ªäººæ•°æ®å¯¼å…¥ SQLiteï¼ŒDatasette æä¾›å¯æµè§ˆ API/UIï¼Œsqlite-utils æ”¯æŒä»Ž JSON/CSV è‡ªåŠ¨å»ºè¡¨ã€FTSã€lookup tableã€‚
+- **è¦ç‚¹**ï¼š
+  - ä»Ž file-first truth layer å’Œ confirmed/candidate objects ç”Ÿæˆåªè¯» SQLite/FTS/BM25 è§†å›¾ã€‚
+  - è§†å›¾å¿…é¡»è®°å½• `built_from_import_run_ids`ã€`schema_version`ã€`generated_at`ã€`field_allowlist`ã€‚
+  - è¯¥è§†å›¾æœåŠ¡äºŽäººå·¥å®¡é˜…ã€è°ƒè¯•ã€ä¸´æ—¶åˆ†æžå’Œæ‰¹é‡è´¨é‡æ£€æŸ¥ï¼Œä¸æ˜¯å”¯ä¸€çœŸç›¸ã€‚
+- **æ”¶ç›Š**ï¼šæ¯”ç›´æŽ¥æµè§ˆæ–‡ä»¶å¤¹æˆ–ä¸» DB æ›´é€‚åˆå‘çŽ°å¯¼å…¥ç¼ºå£ã€é‡å¤é¡¹ã€OCR å¤±è´¥ã€é‚®ä»¶é™„ä»¶æ¼è§£æžã€ç…§ç‰‡ EXIF å¼‚å¸¸ã€è´¦å•å‘¨æœŸå¼‚å¸¸ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢žå¯é‡å»ºç´¢å¼•/è§†å›¾å±‚ï¼›ä¸Ž retrieval çš„ exact search / FTS / BM25 å…¼å®¹ã€‚
+- **é£Žé™©**ï¼šshare/subset è§†å›¾å¯èƒ½æ³„éœ² GPSã€äººè„¸ã€åŒ»ç–—ã€è´¢åŠ¡ã€å…³ç³»å›¾è°±ï¼›å¿…é¡»é»˜è®¤æœ¬åœ°ã€åªè¯»ã€å­—æ®µç™½åå•ã€‚
+
+### P1-18ï¼šä¸ºç¦»çº¿ç¡¬ç›˜/NAS/å†·å½’æ¡£æ–°å¢ž `storage_location_ref` ä¸Ž `availability_state`
+
+- **å‘çŽ°æ¥æº**ï¼šReddit DataHoarder å…³äºŽå¤§åž‹ä¸ªäººå½’æ¡£æ£€ç´¢çš„è®¨è®ºï¼šç”¨æˆ·ç»å¸¸ä¾èµ–ä¸­å¤®ç›®å½•ã€æ–‡ä»¶ hashã€EXIFã€perceptual hashã€ç¡¬ç›˜ç¼–å·/åºåˆ—å·ã€è·¯å¾„ç´¢å¼•æ¥å®šä½ç¦»çº¿æ–‡ä»¶ã€‚
+- **è¦ç‚¹**ï¼š
+  - `raw_evidence` / `media_asset` å¢žåŠ  `storage_location_ref`ã€‚
+  - `storage_location` åŒ…å« `volume_id`ã€`volume_label`ã€`device_serial_hash`ã€`original_path`ã€`normalized_path`ã€`availability_state`ã€`last_seen_at`ã€`last_verified_at`ã€‚
+  - `availability_state`: `online | offline_indexed | missing | cold_archive`ã€‚
+  - æ£€ç´¢ç»“æžœå¿…é¡»èƒ½è¯´æ˜Žâ€œå¯ç«‹å³æ‰“å¼€ / ç´¢å¼•å¯è§ä½†åŽŸä»¶ç¦»çº¿ / åŽŸä»¶ç¼ºå¤± / éœ€è¦è¿žæŽ¥æŸå—ç›˜â€ã€‚
+- **æ”¶ç›Š**ï¼šè®©æ—§ç¡¬ç›˜ã€å®¶åº­åŽ†å²ç…§ç‰‡ã€ç¨ŽåŠ¡å½’æ¡£ã€æ‰«æä»¶ã€NAS å†·æ•°æ®è¿›å…¥åŒä¸€æ£€ç´¢ä½“ç³»ï¼Œè€Œä¸æ˜¯åªèƒ½ä¾èµ–æ¨¡ç³Šè®°å¿†ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– raw evidence çš„ location/provenanceï¼›å½±å“ retrieval UI å’Œ source evidence pullbackã€‚
+- **é£Žé™©**ï¼šè·¯å¾„å’Œè®¾å¤‡ä¿¡æ¯æœ¬èº«æ•æ„Ÿï¼›è®¾å¤‡åºåˆ—å·åº” hashï¼Œè·¯å¾„å±•ç¤ºåº”æ”¯æŒ redactionï¼Œç¦»çº¿ç´¢å¼•å¿…é¡»ç”¨ `last_verified_at` é¿å…è¯¯å¯¼ã€‚
+
+## 2026-05-13 14:25 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆlocal archive / index cache / citation gateï¼‰
+
+### P0-13ï¼šæ˜Žç¡® `truth / cache / export` ä¸‰å±‚ï¼Œé˜²æ­¢æ£€ç´¢ç¼“å­˜å˜æˆäº‹å®žæ¥æº
+
+- **å‘çŽ°æ¥æº**ï¼šmsgvault çš„ SQLite system of record + Parquet analytics cache + local vectorsï¼›ArchiveBox çš„æ™®é€šæ–‡ä»¶å¤¹ + SQLite/JSON å…ƒæ•°æ® + å¯ç›´æŽ¥æµè§ˆçš„ snapshot æ–‡ä»¶å¤¹ã€‚
+- **è¦ç‚¹**ï¼š
+  - `truth layer`ï¼šåŽŸå§‹æ–‡ä»¶ã€sidecarã€confirmed personal memory objectsã€‚
+  - `cache layer`ï¼šFTS/BM25ã€OCR cacheã€thumbnailã€analytics parquet/duckdbã€vector embeddingsã€‚
+  - `export layer`ï¼šMarkdown/wiki/static HTML/CSV/JSON bundleã€‚
+  - cache å¿…é¡»å¯é‡å»ºï¼Œå¹¶å¸¦ `built_from_refs/generated_at/schema_or_model_version`ã€‚
+  - export é»˜è®¤å­—æ®µç™½åå•å’Œ redactionï¼Œä¸ç›´æŽ¥æš´éœ²é«˜æ• evidenceã€‚
+- **æ”¶ç›Š**ï¼šä»¥åŽå¯ä»¥ä¼˜åŒ–æœç´¢å’Œåˆ†æžè€Œä¸ç ´å file-first/local-first çœŸç›¸å±‚ï¼›ä¹Ÿèƒ½é¿å… vector/Parquet/ç´¢å¼•åº“é”å®šã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `storage_layer: truth | cache | export`ï¼›æ´¾ç”Ÿç´¢å¼•/embedding/cache å¯¹è±¡æ–°å¢ž `built_from_refs`ã€‚
+- **é£Žé™©**ï¼šå¤šä¸€å±‚æ¦‚å¿µä¼šå¢žåŠ æ–‡æ¡£å¤æ‚åº¦ï¼›ä¸ªäººç‰ˆåº”åªæŠŠå®ƒä½œä¸ºåŽŸåˆ™å’Œå°‘æ•°å­—æ®µï¼Œä¸è¦åšå®Œæ•´æ•°æ®å¹³å°ã€‚
+
+### P0-14ï¼šé«˜é£Žé™©å€™é€‰æ–°å¢ž `citation_refs / citation_state` å®¡é˜…é—¨
+
+- **å‘çŽ°æ¥æº**ï¼šReddit ä¸Šç”¨ Obsidian ç®¡ç†å¤æ‚åŒ»ç–—è®°å½•çš„è®¨è®ºå¼ºè°ƒ OCRã€LLM è·³è¿‡æºæ–‡ä»¶ã€åŒ»ç–—éšç§å’Œæºæ–‡å¼•ç”¨é—®é¢˜ï¼›GitEHR å¼ºè°ƒåŒ»ç–—è®°å½•çš„å®¡è®¡ä¸Žå¯è¿½æº¯ã€‚
+- **è¦ç‚¹**ï¼š
+  - åŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€è´¦å·å®‰å…¨ã€å…³ç³»ç±»å€™é€‰å¿…é¡»èƒ½å›žåˆ° evidenceã€‚
+  - `citation_state`: `none | file_level | page_level | region_level | excerpt_level`ã€‚
+  - `citation_refs` è‡³å°‘åŒ…å« `evidence_ref/page_or_message_id/excerpt/extraction_method`ã€‚
+  - æ²¡æœ‰ citation çš„é«˜é£Žé™©å€™é€‰åªèƒ½ä¿æŒ `candidate`ï¼Œä¸èƒ½è¿›å…¥ confirmedã€‚
+- **æ”¶ç›Š**ï¼šé™ä½Ž LLM/OCR åœ¨é«˜é£Žé™©é¢†åŸŸåˆ¶é€ â€œçœ‹ä¼¼ç¡®å®šäº‹å®žâ€çš„é£Žé™©ï¼›review æ—¶èƒ½å¿«é€Ÿå›žçœ‹åŽŸä»¶ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ‰©å±• `candidate_item` ä¸Ž high-risk domain objectsï¼›ä¸Ž `evidence_refs` ä¸å†²çªï¼Œ`citation_refs` æ˜¯æ›´ç»†ç²’åº¦è¯æ®å®šä½ã€‚
+- **é£Žé™©**ï¼šå¼•ç”¨ç²’åº¦è¶Šç»†ç»´æŠ¤æˆæœ¬è¶Šé«˜ï¼›ç¬¬ä¸€ç‰ˆå»ºè®®åªå¼ºåˆ¶ file/page/message_idï¼ŒOCR region ä»¥åŽå†åŠ ã€‚
+
+### P1-19ï¼šæŠŠ `raw_evidence / media_asset` æ–‡ä»¶ç»„ç»‡å‡çº§ä¸ºè½»é‡ `evidence_packet`
+
+- **å‘çŽ°æ¥æº**ï¼šArchiveBox æ¯ä¸ª snapshot ä¿ç•™å¤šç§è¾“å‡ºæ–‡ä»¶å’Œ `index.json`ï¼›msgvault å¯¹é™„ä»¶ content-addressed å­˜å‚¨ï¼›Reddit å¤§åž‹ä¸ªäººå½’æ¡£è®¨è®ºå¼ºè°ƒæ™®é€šç›®å½•ã€hashã€EXIFã€ä¸­å¤®ç´¢å¼•ä»ç„¶æœ€å¯é ã€‚
+- **è¦ç‚¹**ï¼š
+  - ä¸€ä¸ªé«˜ä»·å€¼ evidence å¯ä»¥ç»„ç»‡ä¸º `original + meta sidecar + extracted text/OCR + preview + optional redacted copy`ã€‚
+  - `artifact_role`: `original | sidecar | extracted_text | ocr | preview | redacted | index_record | embedding`ã€‚
+  - preview/OCR/redacted éƒ½æ˜¯æ´¾ç”Ÿç‰©ï¼Œæƒé™ä¸å¾—ä½ŽäºŽ originalï¼Œé™¤éžæ˜¾å¼è„±æ•ç¡®è®¤ã€‚
+- **æ”¶ç›Š**ï¼šåŽŸä»¶ã€OCRã€é¢„è§ˆå’Œè„±æ•å‰¯æœ¬ä¸ä¼šæ•£è½ï¼›åº”ç”¨ä¸å¯ç”¨æ—¶ï¼Œæ–‡ä»¶å¤¹ä»å¯ç†è§£å’Œè¿ç§»ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šä¸æ›¿æ¢ `raw_evidence/media_asset`ï¼Œåªå¢žåŠ æ–‡ä»¶å¤¹çº¦å®šå’Œ `derived_refs`ã€‚
+- **é£Žé™©**ï¼šæ´¾ç”Ÿæ–‡ä»¶å¢žåŠ å­˜å‚¨ä¸Žæ³„éœ²é¢ï¼›éœ€è¦æ¸…æ¥šæ ‡æ³¨ original vs derivedã€‚
+
+### P1-20ï¼šé€šä¿¡å½’æ¡£åŒºåˆ† `source_native labels` ä¸Ž `personal labels`
+
+- **å‘çŽ°æ¥æº**ï¼šmsgvault å¯¹ Gmail/IMAP/MBOX/Apple Mail/èŠå¤©æ¥æºä¿ç•™ sourceã€conversationã€messageã€raw MIMEã€labelsã€attachmentsï¼›æ­¤å‰ Notmuch/afew ç ”ç©¶ä¹Ÿæ”¯æŒ message/thread åˆ†å±‚ã€‚
+- **è¦ç‚¹**ï¼š
+  - `labels_from_source`ï¼šGmail labelã€IMAP folderã€èŠå¤© app çŠ¶æ€ã€åŽ†å²å¯¼å‡ºæ ‡ç­¾ã€‚
+  - `personal_labels`ï¼šä¸ªäººè®°å¿†åº“è¯­ä¹‰æ ‡ç­¾ï¼Œå¦‚ billã€receiptã€security_noticeã€relationshipã€travelã€‚
+  - `pipeline_state`ï¼šnew/parsed/classified/reviewed/archived_onlyï¼Œä¸ä¸Žä¸Šè¿°ä¸¤ç±»æ··ç”¨ã€‚
+- **æ”¶ç›Š**ï¼šæ—§é‚®ç®±å’Œæ–°é‚®ç®±éƒ½èƒ½å®‰å…¨å¯¼å…¥ï¼›æ¥æºæ ‡ç­¾ä¸ä¼šæ±¡æŸ“ä¸ªäººè¯­ä¹‰åˆ†ç±»ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– email/chat æœ€å°å­—æ®µï¼›å¯æŽ¨å¹¿åˆ° photo albumsã€filesystem foldersã€cloud labelsã€‚
+- **é£Žé™©**ï¼šå­—æ®µç•¥å¢žï¼›ä½†æ¯”æŠŠæ‰€æœ‰æ ‡ç­¾å¡žè¿›ä¸€ä¸ª `tags` æ•°ç»„æ›´å¯ç»´æŠ¤ã€‚
+
+## 2026-05-13 15:26 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆcanonical membership / evidence packetsï¼‰
+
+### P0-15ï¼šæ–°å¢ž `source_membership`ï¼ŒæŠŠæ¥æºå®¹å™¨/æ ‡ç­¾/ç›¸å†Œä»Žä¸ªäººè¯­ä¹‰æ ‡ç­¾ä¸­æ‹†å‡º
+
+- **å‘çŽ°æ¥æº**ï¼šBirdclaw çš„ canonical tweets/profiles + account-scoped timeline/collection edgesï¼›Discrawl çš„ channel/thread/message/attachment åˆ†å±‚ä¸Ž Git snapshot å‘å¸ƒç™½åå•ï¼›æ­¤å‰ Notmuch/afew ä¸Ž msgvault å¯¹ source labels å’Œ personal labels çš„åŒºåˆ†ã€‚
+- **è¦ç‚¹**ï¼š
+  - åŒä¸€ä¸ª canonical object å¯èƒ½å‡ºçŽ°åœ¨å¤šä¸ªæ¥æºå®¹å™¨é‡Œï¼šæ—§é‚®ç®±æ–‡ä»¶å¤¹ã€æ–° Gmail labelã€èŠå¤© threadã€Apple Photos albumã€äº‘ç›˜ç›®å½•ã€ç¤¾äº¤æ”¶è—ã€å¯¼å‡ºæ‰¹æ¬¡ã€‚
+  - `source_membership` åªè¡¨è¾¾â€œæ¥æºç³»ç»Ÿå¦‚ä½•ç»„ç»‡å®ƒâ€ï¼Œä¸è¡¨è¾¾ä¸ªäººæ•°æ®åº“çš„é•¿æœŸè¯­ä¹‰ã€‚
+  - ä¸ªäººè¯­ä¹‰ç»§ç»­ç”¨ `personal_labels` / `semantic_type` / `domain` è¡¨è¾¾ã€‚
+  - æœ€å°å­—æ®µï¼š
 
 ```yaml
 source_membership:
@@ -415,18 +415,18 @@ source_membership:
   publish_policy:
 ```
 
-- **收益**：避免旧邮箱/新邮箱/相册/文件夹/聊天导出标签污染长期语义；支持同一资产多来源出现但只保留一个 canonical object；未来 Google/Telegram/Hermes sync 可以按 membership 裁剪。
-- **schema 影响（提案级）**：`raw_evidence`、`media_asset`、`email_message`、`chat_message`、`person_profile`、`document_record` 都可挂多个 `source_membership`；`labels_from_source` 可降级为 membership 的字段，而不是对象主标签。
-- **风险**：多一层边对象；来源容器名本身可能敏感，默认继承 canonical object 最高 sensitivity，外部 export 默认排除 `local_only` membership。
+- **æ”¶ç›Š**ï¼šé¿å…æ—§é‚®ç®±/æ–°é‚®ç®±/ç›¸å†Œ/æ–‡ä»¶å¤¹/èŠå¤©å¯¼å‡ºæ ‡ç­¾æ±¡æŸ“é•¿æœŸè¯­ä¹‰ï¼›æ”¯æŒåŒä¸€èµ„äº§å¤šæ¥æºå‡ºçŽ°ä½†åªä¿ç•™ä¸€ä¸ª canonical objectï¼›æœªæ¥ Google/Telegram/Hermes sync å¯ä»¥æŒ‰ membership è£å‰ªã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼š`raw_evidence`ã€`media_asset`ã€`email_message`ã€`chat_message`ã€`person_profile`ã€`document_record` éƒ½å¯æŒ‚å¤šä¸ª `source_membership`ï¼›`labels_from_source` å¯é™çº§ä¸º membership çš„å­—æ®µï¼Œè€Œä¸æ˜¯å¯¹è±¡ä¸»æ ‡ç­¾ã€‚
+- **é£Žé™©**ï¼šå¤šä¸€å±‚è¾¹å¯¹è±¡ï¼›æ¥æºå®¹å™¨åæœ¬èº«å¯èƒ½æ•æ„Ÿï¼Œé»˜è®¤ç»§æ‰¿ canonical object æœ€é«˜ sensitivityï¼Œå¤–éƒ¨ export é»˜è®¤æŽ’é™¤ `local_only` membershipã€‚
 
-### P0-16：高价值证据采用个人版 `evidence_packet + citation_ref` 最小约定
+### P0-16ï¼šé«˜ä»·å€¼è¯æ®é‡‡ç”¨ä¸ªäººç‰ˆ `evidence_packet + citation_ref` æœ€å°çº¦å®š
 
-- **发现来源**：Reddit 上用 Obsidian/LLM wiki 管理复杂医疗记录的实际痛点（OCR、LLM 跳过文件、回源困难、医疗隐私）；ArchiveBox snapshot 文件夹；SwarmVault raw/wiki/state 三层；Discrawl 附件二进制外置而只索引 metadata/可选 extracted text。
-- **要点**：
-  - `evidence_packet` 不是替换 `raw_evidence/media_asset`，而是把高价值证据的原件、sidecar、OCR/text、preview、redacted copy 放在一个可理解的包里。
-  - `citation_ref` 不只指向文件，还可指向 packet 内 artifact 和 locator（页码、message id、section、OCR region、timestamp）。
-  - 高风险 confirmed object（医疗、财务、法律、账号安全、关系）至少需要 file/page/message 级 citation；没有 citation 只能保持 candidate。
-  - 最小字段：
+- **å‘çŽ°æ¥æº**ï¼šReddit ä¸Šç”¨ Obsidian/LLM wiki ç®¡ç†å¤æ‚åŒ»ç–—è®°å½•çš„å®žé™…ç—›ç‚¹ï¼ˆOCRã€LLM è·³è¿‡æ–‡ä»¶ã€å›žæºå›°éš¾ã€åŒ»ç–—éšç§ï¼‰ï¼›ArchiveBox snapshot æ–‡ä»¶å¤¹ï¼›SwarmVault raw/wiki/state ä¸‰å±‚ï¼›Discrawl é™„ä»¶äºŒè¿›åˆ¶å¤–ç½®è€Œåªç´¢å¼• metadata/å¯é€‰ extracted textã€‚
+- **è¦ç‚¹**ï¼š
+  - `evidence_packet` ä¸æ˜¯æ›¿æ¢ `raw_evidence/media_asset`ï¼Œè€Œæ˜¯æŠŠé«˜ä»·å€¼è¯æ®çš„åŽŸä»¶ã€sidecarã€OCR/textã€previewã€redacted copy æ”¾åœ¨ä¸€ä¸ªå¯ç†è§£çš„åŒ…é‡Œã€‚
+  - `citation_ref` ä¸åªæŒ‡å‘æ–‡ä»¶ï¼Œè¿˜å¯æŒ‡å‘ packet å†… artifact å’Œ locatorï¼ˆé¡µç ã€message idã€sectionã€OCR regionã€timestampï¼‰ã€‚
+  - é«˜é£Žé™© confirmed objectï¼ˆåŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€è´¦å·å®‰å…¨ã€å…³ç³»ï¼‰è‡³å°‘éœ€è¦ file/page/message çº§ citationï¼›æ²¡æœ‰ citation åªèƒ½ä¿æŒ candidateã€‚
+  - æœ€å°å­—æ®µï¼š
 
 ```yaml
 evidence_packet:
@@ -448,43 +448,43 @@ citation_ref:
   confidence:
 ```
 
-- **收益**：review 时能快速从候选事实回到原 PDF/截图/邮件/附件；应用不可用时文件夹仍可迁移和理解；降低 OCR/LLM 把高风险信息说错但无法追溯的风险。
-- **schema 影响（提案级）**：深化 P0-14 和 P1-19；`candidate_item` 与 high-risk domain objects 增加 `citation_refs`；`raw_evidence/media_asset` 增加可选 `packet_id` 或 `packet_ref`。
-- **风险**：对所有资料强制 packet 化会过重；第一版只对医疗、财务、法律、账号安全、重要行政文件和少量高价值截图强制。
+- **æ”¶ç›Š**ï¼šreview æ—¶èƒ½å¿«é€Ÿä»Žå€™é€‰äº‹å®žå›žåˆ°åŽŸ PDF/æˆªå›¾/é‚®ä»¶/é™„ä»¶ï¼›åº”ç”¨ä¸å¯ç”¨æ—¶æ–‡ä»¶å¤¹ä»å¯è¿ç§»å’Œç†è§£ï¼›é™ä½Ž OCR/LLM æŠŠé«˜é£Žé™©ä¿¡æ¯è¯´é”™ä½†æ— æ³•è¿½æº¯çš„é£Žé™©ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– P0-14 å’Œ P1-19ï¼›`candidate_item` ä¸Ž high-risk domain objects å¢žåŠ  `citation_refs`ï¼›`raw_evidence/media_asset` å¢žåŠ å¯é€‰ `packet_id` æˆ– `packet_ref`ã€‚
+- **é£Žé™©**ï¼šå¯¹æ‰€æœ‰èµ„æ–™å¼ºåˆ¶ packet åŒ–ä¼šè¿‡é‡ï¼›ç¬¬ä¸€ç‰ˆåªå¯¹åŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€è´¦å·å®‰å…¨ã€é‡è¦è¡Œæ”¿æ–‡ä»¶å’Œå°‘é‡é«˜ä»·å€¼æˆªå›¾å¼ºåˆ¶ã€‚
 
-### P1-21：把 `truth / working / cache / export` 降级写成个人版四层边界
+### P1-21ï¼šæŠŠ `truth / working / cache / export` é™çº§å†™æˆä¸ªäººç‰ˆå››å±‚è¾¹ç•Œ
 
-- **发现来源**：SwarmVault 的 `raw/ wiki/ state/` 三层；Engram 的 Markdown source of truth + 可重建 FTS/Xapian index；Discrawl 的 SQLite/FTS/embedding provider-model-input_version 约束。
-- **要点**：
-  - `truth`：原始文件、sidecar、confirmed personal memory objects。
-  - `working`：人工可读 wiki/brief/summary/doctor visit prep，不是真相，必须带 `built_from_refs` 和 `review_state`。
-  - `cache`：OCR cache、thumbnail、FTS/BM25、embedding、graph view，可删除重建。
-  - `export`：Markdown/HTML/CSV/JSON bundle，必须字段白名单和 redaction。
-  - cache 记录 `provider/model/input_version/generated_at`，避免不同 embedding 或解析版本混用。
-- **收益**：让个人系统能同时保留原件、生成好读整理页、快速搜索，并避免把索引或 LLM wiki 当成唯一事实。
-- **schema 影响（提案级）**：深化 P0-13；新增 `storage_layer`、`artifact_role`、`built_from_refs`、`cache_identity` 等少量字段。
-- **风险**：概念增多；应作为目录/字段约定，而不是第一版就实现完整数据平台。
+- **å‘çŽ°æ¥æº**ï¼šSwarmVault çš„ `raw/ wiki/ state/` ä¸‰å±‚ï¼›Engram çš„ Markdown source of truth + å¯é‡å»º FTS/Xapian indexï¼›Discrawl çš„ SQLite/FTS/embedding provider-model-input_version çº¦æŸã€‚
+- **è¦ç‚¹**ï¼š
+  - `truth`ï¼šåŽŸå§‹æ–‡ä»¶ã€sidecarã€confirmed personal memory objectsã€‚
+  - `working`ï¼šäººå·¥å¯è¯» wiki/brief/summary/doctor visit prepï¼Œä¸æ˜¯çœŸç›¸ï¼Œå¿…é¡»å¸¦ `built_from_refs` å’Œ `review_state`ã€‚
+  - `cache`ï¼šOCR cacheã€thumbnailã€FTS/BM25ã€embeddingã€graph viewï¼Œå¯åˆ é™¤é‡å»ºã€‚
+  - `export`ï¼šMarkdown/HTML/CSV/JSON bundleï¼Œå¿…é¡»å­—æ®µç™½åå•å’Œ redactionã€‚
+  - cache è®°å½• `provider/model/input_version/generated_at`ï¼Œé¿å…ä¸åŒ embedding æˆ–è§£æžç‰ˆæœ¬æ··ç”¨ã€‚
+- **æ”¶ç›Š**ï¼šè®©ä¸ªäººç³»ç»Ÿèƒ½åŒæ—¶ä¿ç•™åŽŸä»¶ã€ç”Ÿæˆå¥½è¯»æ•´ç†é¡µã€å¿«é€Ÿæœç´¢ï¼Œå¹¶é¿å…æŠŠç´¢å¼•æˆ– LLM wiki å½“æˆå”¯ä¸€äº‹å®žã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ·±åŒ– P0-13ï¼›æ–°å¢ž `storage_layer`ã€`artifact_role`ã€`built_from_refs`ã€`cache_identity` ç­‰å°‘é‡å­—æ®µã€‚
+- **é£Žé™©**ï¼šæ¦‚å¿µå¢žå¤šï¼›åº”ä½œä¸ºç›®å½•/å­—æ®µçº¦å®šï¼Œè€Œä¸æ˜¯ç¬¬ä¸€ç‰ˆå°±å®žçŽ°å®Œæ•´æ•°æ®å¹³å°ã€‚
 
-## 2026-05-13 16:26 EDT 新增候选项（timeline projection / temporal uncertainty）
+## 2026-05-13 16:26 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆtimeline projection / temporal uncertaintyï¼‰
 
-### P0-17：把时间线升级为 `timeline_projection + timeline_entry`，但明确它不是事实主存储
+### P0-17ï¼šæŠŠæ—¶é—´çº¿å‡çº§ä¸º `timeline_projection + timeline_entry`ï¼Œä½†æ˜Žç¡®å®ƒä¸æ˜¯äº‹å®žä¸»å­˜å‚¨
 
-- **发现来源**：Timelinize/Timeliner 把 timeline、map、conversation、gallery 明确作为不同 projections；ActivityWatch 的 bucket/event/heartbeat 模型；facebookresearch personal-timeline / TimelineQA 的 retrieval-based 与 view-based QA；Obsidian/Reddit daily note 实践对 rollup、Dataview、检索稳定性的经验。
-- **要点**：
-  - `daily_timeline / medical_timeline / finance_timeline / relationship_timeline / map_view / gallery_view` 都应是从 raw evidence、confirmed objects、candidate objects、source memberships 生成的投影视图。
-  - 新增 `timeline_projection`：记录 projection 类型、构建规则、权限范围、redaction 策略、coverage 状态、cache identity。
-  - 新增 `timeline_entry`：记录 canonical_ref、source_membership_refs、temporal_anchor、display_group、domain、entity_refs、place_refs、evidence_refs、citation_refs、sensitivity、sync_permission、review_state、confidence。
-  - `daily_narrative_log` 只能是 working/export 层，必须带 `built_from_projection_id`，不能作为 evidence 或 confirmed fact。
-- **收益**：用户可以按日、领域、人、地点、旅行、会话、图库浏览全生活数据，同时不把 AI 总结或日记视图污染事实层；也支持 “上次 X 是什么时候”“某月账单/运动/就诊有哪些”“某次旅行涉及哪些照片/邮件/票据” 这类聚合查询。
-- **schema 影响（提案级）**：新增 `timeline_projection`、`timeline_entry`；深化 P0-6 `aggregation_level`、P0-13/P1-21 truth/cache/working 边界、P0-15 source_membership、P0-16 citation_ref。
-- **风险**：时间线聚合会放大隐私风险；必须按 child objects 计算 `max_sensitivity` 与 `min_sync_permission`，并显示 `coverage_state=complete|partial|unknown`，避免不完整导入被误解为完整历史。
+- **å‘çŽ°æ¥æº**ï¼šTimelinize/Timeliner æŠŠ timelineã€mapã€conversationã€gallery æ˜Žç¡®ä½œä¸ºä¸åŒ projectionsï¼›ActivityWatch çš„ bucket/event/heartbeat æ¨¡åž‹ï¼›facebookresearch personal-timeline / TimelineQA çš„ retrieval-based ä¸Ž view-based QAï¼›Obsidian/Reddit daily note å®žè·µå¯¹ rollupã€Dataviewã€æ£€ç´¢ç¨³å®šæ€§çš„ç»éªŒã€‚
+- **è¦ç‚¹**ï¼š
+  - `daily_timeline / medical_timeline / finance_timeline / relationship_timeline / map_view / gallery_view` éƒ½åº”æ˜¯ä»Ž raw evidenceã€confirmed objectsã€candidate objectsã€source memberships ç”Ÿæˆçš„æŠ•å½±è§†å›¾ã€‚
+  - æ–°å¢ž `timeline_projection`ï¼šè®°å½• projection ç±»åž‹ã€æž„å»ºè§„åˆ™ã€æƒé™èŒƒå›´ã€redaction ç­–ç•¥ã€coverage çŠ¶æ€ã€cache identityã€‚
+  - æ–°å¢ž `timeline_entry`ï¼šè®°å½• canonical_refã€source_membership_refsã€temporal_anchorã€display_groupã€domainã€entity_refsã€place_refsã€evidence_refsã€citation_refsã€sensitivityã€sync_permissionã€review_stateã€confidenceã€‚
+  - `daily_narrative_log` åªèƒ½æ˜¯ working/export å±‚ï¼Œå¿…é¡»å¸¦ `built_from_projection_id`ï¼Œä¸èƒ½ä½œä¸º evidence æˆ– confirmed factã€‚
+- **æ”¶ç›Š**ï¼šç”¨æˆ·å¯ä»¥æŒ‰æ—¥ã€é¢†åŸŸã€äººã€åœ°ç‚¹ã€æ—…è¡Œã€ä¼šè¯ã€å›¾åº“æµè§ˆå…¨ç”Ÿæ´»æ•°æ®ï¼ŒåŒæ—¶ä¸æŠŠ AI æ€»ç»“æˆ–æ—¥è®°è§†å›¾æ±¡æŸ“äº‹å®žå±‚ï¼›ä¹Ÿæ”¯æŒ â€œä¸Šæ¬¡ X æ˜¯ä»€ä¹ˆæ—¶å€™â€â€œæŸæœˆè´¦å•/è¿åŠ¨/å°±è¯Šæœ‰å“ªäº›â€â€œæŸæ¬¡æ—…è¡Œæ¶‰åŠå“ªäº›ç…§ç‰‡/é‚®ä»¶/ç¥¨æ®â€ è¿™ç±»èšåˆæŸ¥è¯¢ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `timeline_projection`ã€`timeline_entry`ï¼›æ·±åŒ– P0-6 `aggregation_level`ã€P0-13/P1-21 truth/cache/working è¾¹ç•Œã€P0-15 source_membershipã€P0-16 citation_refã€‚
+- **é£Žé™©**ï¼šæ—¶é—´çº¿èšåˆä¼šæ”¾å¤§éšç§é£Žé™©ï¼›å¿…é¡»æŒ‰ child objects è®¡ç®— `max_sensitivity` ä¸Ž `min_sync_permission`ï¼Œå¹¶æ˜¾ç¤º `coverage_state=complete|partial|unknown`ï¼Œé¿å…ä¸å®Œæ•´å¯¼å…¥è¢«è¯¯è§£ä¸ºå®Œæ•´åŽ†å²ã€‚
 
-### P0-18：新增 `temporal_anchor`，显式表达时间角色、精度、时区和不确定性
+### P0-18ï¼šæ–°å¢ž `temporal_anchor`ï¼Œæ˜¾å¼è¡¨è¾¾æ—¶é—´è§’è‰²ã€ç²¾åº¦ã€æ—¶åŒºå’Œä¸ç¡®å®šæ€§
 
-- **发现来源**：Timelinize 对 item 使用 timestamp/timespan/timeframe/time_offset/time_uncertainty；ActivityWatch 事件模型提醒 continuous stream 需要 timestamp/duration，但其 UTC-only 行为也暴露了 timezone 丢失风险；TimelineQA 强调 lifelog QA 同时依赖自由文本、时间和地点结构。
-- **要点**：
-  - 不再假设所有对象只有一个 `occurred_at`。同一对象可能有 `captured_at/sent_at/received_at/issued_at/due_at/paid_at/appointment_at/observed_at/ingested_at/inferred_at`。
-  - 最小字段：
+- **å‘çŽ°æ¥æº**ï¼šTimelinize å¯¹ item ä½¿ç”¨ timestamp/timespan/timeframe/time_offset/time_uncertaintyï¼›ActivityWatch äº‹ä»¶æ¨¡åž‹æé†’ continuous stream éœ€è¦ timestamp/durationï¼Œä½†å…¶ UTC-only è¡Œä¸ºä¹Ÿæš´éœ²äº† timezone ä¸¢å¤±é£Žé™©ï¼›TimelineQA å¼ºè°ƒ lifelog QA åŒæ—¶ä¾èµ–è‡ªç”±æ–‡æœ¬ã€æ—¶é—´å’Œåœ°ç‚¹ç»“æž„ã€‚
+- **è¦ç‚¹**ï¼š
+  - ä¸å†å‡è®¾æ‰€æœ‰å¯¹è±¡åªæœ‰ä¸€ä¸ª `occurred_at`ã€‚åŒä¸€å¯¹è±¡å¯èƒ½æœ‰ `captured_at/sent_at/received_at/issued_at/due_at/paid_at/appointment_at/observed_at/ingested_at/inferred_at`ã€‚
+  - æœ€å°å­—æ®µï¼š
 
 ```yaml
 temporal_anchor:
@@ -501,51 +501,51 @@ temporal_anchor:
   alternative_times:
 ```
 
-  - 对照片、旧扫描件、医疗报告、账单、邮件、聊天、未来 wearable/audio stream 都保留 `time_source` 与 `temporal_precision`。
-  - ActivityWatch 风格 stream 的 heartbeat/merge 结果应作为 projection/cache，不覆盖 raw event。
-- **收益**：长期系统能正确处理旅行跨时区、旧照片只知年月、账单 due/paid 差异、医疗 observed/issued/imported 差异、邮件 sent/received/imported 差异；时间线和检索排序更可信。
-- **schema 影响（提案级）**：`raw_evidence/media_asset/email_message/chat_message/medical_item/finance_item/event/task` 增加可选 `temporal_anchor`；`occurred_at` 可保留为便捷字段，但应由 `temporal_anchor.primary_time` 派生。
-- **风险**：字段复杂度上升；第一版可只要求 `primary_time/primary_time_role/temporal_precision/timezone/time_source`，其余字段按需补充。
+  - å¯¹ç…§ç‰‡ã€æ—§æ‰«æä»¶ã€åŒ»ç–—æŠ¥å‘Šã€è´¦å•ã€é‚®ä»¶ã€èŠå¤©ã€æœªæ¥ wearable/audio stream éƒ½ä¿ç•™ `time_source` ä¸Ž `temporal_precision`ã€‚
+  - ActivityWatch é£Žæ ¼ stream çš„ heartbeat/merge ç»“æžœåº”ä½œä¸º projection/cacheï¼Œä¸è¦†ç›– raw eventã€‚
+- **æ”¶ç›Š**ï¼šé•¿æœŸç³»ç»Ÿèƒ½æ­£ç¡®å¤„ç†æ—…è¡Œè·¨æ—¶åŒºã€æ—§ç…§ç‰‡åªçŸ¥å¹´æœˆã€è´¦å• due/paid å·®å¼‚ã€åŒ»ç–— observed/issued/imported å·®å¼‚ã€é‚®ä»¶ sent/received/imported å·®å¼‚ï¼›æ—¶é—´çº¿å’Œæ£€ç´¢æŽ’åºæ›´å¯ä¿¡ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼š`raw_evidence/media_asset/email_message/chat_message/medical_item/finance_item/event/task` å¢žåŠ å¯é€‰ `temporal_anchor`ï¼›`occurred_at` å¯ä¿ç•™ä¸ºä¾¿æ·å­—æ®µï¼Œä½†åº”ç”± `temporal_anchor.primary_time` æ´¾ç”Ÿã€‚
+- **é£Žé™©**ï¼šå­—æ®µå¤æ‚åº¦ä¸Šå‡ï¼›ç¬¬ä¸€ç‰ˆå¯åªè¦æ±‚ `primary_time/primary_time_role/temporal_precision/timezone/time_source`ï¼Œå…¶ä½™å­—æ®µæŒ‰éœ€è¡¥å……ã€‚
 
-## 2026-05-13 17:26 EDT 新增候选项（raw samples vs semantic projections）
+## 2026-05-13 17:26 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆraw samples vs semantic projectionsï¼‰
 
-### P0-19：新增 `interpretation_level`，区分原始观测、来源语义推断、派生候选和投影视图
+### P0-19ï¼šæ–°å¢ž `interpretation_level`ï¼ŒåŒºåˆ†åŽŸå§‹è§‚æµ‹ã€æ¥æºè¯­ä¹‰æŽ¨æ–­ã€æ´¾ç”Ÿå€™é€‰å’ŒæŠ•å½±è§†å›¾
 
-- **发现来源**：Timelinize 的本地原始数据 + timeline/map/conversation/gallery projections；Google Takeout Location History 的 raw `Records.json` vs `Semantic Location History`（`placeVisit` / `activitySegment`）；DFIR Review 对 Google semantic layer 受用户编辑影响的分析；Apple Health / HealthKit sample 的 start/end/source revision 模式。
-- **要点**：
-  - `review_state` 只表示人是否确认；`interpretation_level` 表示记录距离原始观测有多远。
-  - 最小枚举：`raw | source_semantic | derived_candidate | reviewed_fact | projection`。
-  - Google/Apple/可穿戴设备的自动 place visit、activity segment、sleep session、weekly trend 默认不是 truth，必须明确为 `source_semantic` 或 `projection`。
-- **收益**：避免来源系统的语义推断污染个人事实层；未来导入位置、健康、wearable、audio stream 时，不需要重构 review/retrieval 模型。
-- **schema 影响（提案级）**：`labels` 或 sidecar 最小字段新增可选 `interpretation_level`；`timeline_entry`、`candidate_item`、`health_sample`、`location_raw_point` 均可使用。
-- **风险**：增加一个概念；但比引入完整的 source trust ontology 轻得多，适合个人版。
+- **å‘çŽ°æ¥æº**ï¼šTimelinize çš„æœ¬åœ°åŽŸå§‹æ•°æ® + timeline/map/conversation/gallery projectionsï¼›Google Takeout Location History çš„ raw `Records.json` vs `Semantic Location History`ï¼ˆ`placeVisit` / `activitySegment`ï¼‰ï¼›DFIR Review å¯¹ Google semantic layer å—ç”¨æˆ·ç¼–è¾‘å½±å“çš„åˆ†æžï¼›Apple Health / HealthKit sample çš„ start/end/source revision æ¨¡å¼ã€‚
+- **è¦ç‚¹**ï¼š
+  - `review_state` åªè¡¨ç¤ºäººæ˜¯å¦ç¡®è®¤ï¼›`interpretation_level` è¡¨ç¤ºè®°å½•è·ç¦»åŽŸå§‹è§‚æµ‹æœ‰å¤šè¿œã€‚
+  - æœ€å°æžšä¸¾ï¼š`raw | source_semantic | derived_candidate | reviewed_fact | projection`ã€‚
+  - Google/Apple/å¯ç©¿æˆ´è®¾å¤‡çš„è‡ªåŠ¨ place visitã€activity segmentã€sleep sessionã€weekly trend é»˜è®¤ä¸æ˜¯ truthï¼Œå¿…é¡»æ˜Žç¡®ä¸º `source_semantic` æˆ– `projection`ã€‚
+- **æ”¶ç›Š**ï¼šé¿å…æ¥æºç³»ç»Ÿçš„è¯­ä¹‰æŽ¨æ–­æ±¡æŸ“ä¸ªäººäº‹å®žå±‚ï¼›æœªæ¥å¯¼å…¥ä½ç½®ã€å¥åº·ã€wearableã€audio stream æ—¶ï¼Œä¸éœ€è¦é‡æž„ review/retrieval æ¨¡åž‹ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼š`labels` æˆ– sidecar æœ€å°å­—æ®µæ–°å¢žå¯é€‰ `interpretation_level`ï¼›`timeline_entry`ã€`candidate_item`ã€`health_sample`ã€`location_raw_point` å‡å¯ä½¿ç”¨ã€‚
+- **é£Žé™©**ï¼šå¢žåŠ ä¸€ä¸ªæ¦‚å¿µï¼›ä½†æ¯”å¼•å…¥å®Œæ•´çš„ source trust ontology è½»å¾—å¤šï¼Œé€‚åˆä¸ªäººç‰ˆã€‚
 
-### P1-22：为位置和健康连续数据预留 `raw sample -> semantic candidate -> projection` 最小对象
+### P1-22ï¼šä¸ºä½ç½®å’Œå¥åº·è¿žç»­æ•°æ®é¢„ç•™ `raw sample -> semantic candidate -> projection` æœ€å°å¯¹è±¡
 
-- **发现来源**：Google Semantic Location History schema（`activitySegment` / `placeVisit`）；Apple Health XML/HealthKit sample 的 `type/value/unit/startDate/endDate/sourceName/sourceVersion/device` 社区导出经验；QS Ledger 的 local quantified-self downloader + analysis dashboard 分层。
-- **要点**：
-  - 位置：`location_raw_point` 保留原始点；`place_visit_candidate` 和 `movement_segment_candidate` 保留来源系统推断；`map_view/travel_timeline/daily_projection` 作为 projection。
-  - 健康：`health_sample` 保留 sample type、value、unit、start/end、source/device、evidence_ref；sleep session、exercise summary、weekly trend、doctor prep summary 只是 projection/working layer。
-  - 不现在实现 Google/Apple/wearable 导入，只把 IA 边界写清楚。
-- **收益**：支持未来 lifelog/wearable/audio streams，同时保持现在的个人版轻量主干。
-- **schema 影响（提案级）**：未来可新增 `location_raw_point/place_visit_candidate/movement_segment_candidate/health_sample`；现阶段只在文档中作 P1 预留。
-- **风险**：GPS、home/work pattern、sleep、heart rate、symptom 等都是高敏感；默认 `local_only`、不 embed raw、不导出精确轨迹。
+- **å‘çŽ°æ¥æº**ï¼šGoogle Semantic Location History schemaï¼ˆ`activitySegment` / `placeVisit`ï¼‰ï¼›Apple Health XML/HealthKit sample çš„ `type/value/unit/startDate/endDate/sourceName/sourceVersion/device` ç¤¾åŒºå¯¼å‡ºç»éªŒï¼›QS Ledger çš„ local quantified-self downloader + analysis dashboard åˆ†å±‚ã€‚
+- **è¦ç‚¹**ï¼š
+  - ä½ç½®ï¼š`location_raw_point` ä¿ç•™åŽŸå§‹ç‚¹ï¼›`place_visit_candidate` å’Œ `movement_segment_candidate` ä¿ç•™æ¥æºç³»ç»ŸæŽ¨æ–­ï¼›`map_view/travel_timeline/daily_projection` ä½œä¸º projectionã€‚
+  - å¥åº·ï¼š`health_sample` ä¿ç•™ sample typeã€valueã€unitã€start/endã€source/deviceã€evidence_refï¼›sleep sessionã€exercise summaryã€weekly trendã€doctor prep summary åªæ˜¯ projection/working layerã€‚
+  - ä¸çŽ°åœ¨å®žçŽ° Google/Apple/wearable å¯¼å…¥ï¼ŒåªæŠŠ IA è¾¹ç•Œå†™æ¸…æ¥šã€‚
+- **æ”¶ç›Š**ï¼šæ”¯æŒæœªæ¥ lifelog/wearable/audio streamsï¼ŒåŒæ—¶ä¿æŒçŽ°åœ¨çš„ä¸ªäººç‰ˆè½»é‡ä¸»å¹²ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæœªæ¥å¯æ–°å¢ž `location_raw_point/place_visit_candidate/movement_segment_candidate/health_sample`ï¼›çŽ°é˜¶æ®µåªåœ¨æ–‡æ¡£ä¸­ä½œ P1 é¢„ç•™ã€‚
+- **é£Žé™©**ï¼šGPSã€home/work patternã€sleepã€heart rateã€symptom ç­‰éƒ½æ˜¯é«˜æ•æ„Ÿï¼›é»˜è®¤ `local_only`ã€ä¸ embed rawã€ä¸å¯¼å‡ºç²¾ç¡®è½¨è¿¹ã€‚
 
-## 2026-05-13 17:49 EDT 新增候选项（PS 总管串行 agent work log）
+## 2026-05-13 17:49 EDT æ–°å¢žå€™é€‰é¡¹ï¼ˆPS æ€»ç®¡ä¸²è¡Œ agent work logï¼‰
 
-### P0-20：新增 `ps_agent_work_log` + `domain_agent_queue`，强制小秘串行 processing/audit/proposal chain
+### P0-20ï¼šæ–°å¢ž `ps_agent_work_log` + `domain_agent_queue`ï¼Œå¼ºåˆ¶å°ç§˜ä¸²è¡Œ processing/audit/proposal chain
 
-- **发现来源**：本轮复核 `06-global-workflow.md`、`07-personal-memory-minimal-workflow.md`、既有 P1-11 `assistant_handoff/context_event_log` 与最近 agent workflow 讨论。现有结构已有 handoff、review gate、candidate verification，但还缺少总管层面的“先记录结果、再允许下一棒”的串行门闩。
-- **要点**：
-  - 总管是唯一全局 work log owner，负责分类、分派、记录结果、冲突/阻塞、下一步排队。
-  - 每个小秘只维护一个 `active_chain_id`；同一时间只能有一条 active processing/audit/proposal chain。
-  - processing agent 只处理一个 evidence packet，返回 `processing_result` 或 `abstract_result`。
-  - audit agent 检查 processing result、citation_refs、scope boundary 和 risk flags，返回 `audit_result`。
-  - proposal agent 根据 processing/audit 结果生成 `review_result` / `update_proposal` / `no_action`，但不直接写 truth layer。
-  - 小秘汇总生成 `domain_event_summary_report`，并 report 给总管。
-  - 只有总管把该 work log 状态推进到 `secretary_reported | closed`，并设置 `next_spawn_allowed=true` 后，小秘才能开始下一条 chain。
-  - 失败、证据不足、冲突、超范围都必须写 `blocked_reason`，不能静默继续。
-- **最小字段**：
+- **å‘çŽ°æ¥æº**ï¼šæœ¬è½®å¤æ ¸ `06-global-workflow.md`ã€`07-personal-memory-minimal-workflow.md`ã€æ—¢æœ‰ P1-11 `assistant_handoff/context_event_log` ä¸Žæœ€è¿‘ agent workflow è®¨è®ºã€‚çŽ°æœ‰ç»“æž„å·²æœ‰ handoffã€review gateã€candidate verificationï¼Œä½†è¿˜ç¼ºå°‘æ€»ç®¡å±‚é¢çš„â€œå…ˆè®°å½•ç»“æžœã€å†å…è®¸ä¸‹ä¸€æ£’â€çš„ä¸²è¡Œé—¨é—©ã€‚
+- **è¦ç‚¹**ï¼š
+  - æ€»ç®¡æ˜¯å”¯ä¸€å…¨å±€ work log ownerï¼Œè´Ÿè´£åˆ†ç±»ã€åˆ†æ´¾ã€è®°å½•ç»“æžœã€å†²çª/é˜»å¡žã€ä¸‹ä¸€æ­¥æŽ’é˜Ÿã€‚
+  - æ¯ä¸ªå°ç§˜åªç»´æŠ¤ä¸€ä¸ª `active_chain_id`ï¼›åŒä¸€æ—¶é—´åªèƒ½æœ‰ä¸€æ¡ active processing/audit/proposal chainã€‚
+  - processing agent åªå¤„ç†ä¸€ä¸ª evidence packetï¼Œè¿”å›ž `processing_result` æˆ– `abstract_result`ã€‚
+  - audit agent æ£€æŸ¥ processing resultã€citation_refsã€scope boundary å’Œ risk flagsï¼Œè¿”å›ž `audit_result`ã€‚
+  - proposal agent æ ¹æ® processing/audit ç»“æžœç”Ÿæˆ `review_result` / `update_proposal` / `no_action`ï¼Œä½†ä¸ç›´æŽ¥å†™ truth layerã€‚
+  - å°ç§˜æ±‡æ€»ç”Ÿæˆ `domain_event_summary_report`ï¼Œå¹¶ report ç»™æ€»ç®¡ã€‚
+  - åªæœ‰æ€»ç®¡æŠŠè¯¥ work log çŠ¶æ€æŽ¨è¿›åˆ° `secretary_reported | closed`ï¼Œå¹¶è®¾ç½® `next_spawn_allowed=true` åŽï¼Œå°ç§˜æ‰èƒ½å¼€å§‹ä¸‹ä¸€æ¡ chainã€‚
+  - å¤±è´¥ã€è¯æ®ä¸è¶³ã€å†²çªã€è¶…èŒƒå›´éƒ½å¿…é¡»å†™ `blocked_reason`ï¼Œä¸èƒ½é™é»˜ç»§ç»­ã€‚
+- **æœ€å°å­—æ®µ**ï¼š
 
 ```yaml
 ps_agent_work_log:
@@ -577,13 +577,13 @@ domain_agent_queue:
   next_spawn_allowed:
 ```
 
-- **收益**：保证“为什么这条记忆被写入/更新”可解释；避免小秘并发 spawn 导致重复候选、citation 丢失、冲突被覆盖；同时保持个人版轻量，不引入企业级任务平台。
-- **schema 影响（提案级）**：新增 `ps_agent_work_log` 与 `domain_agent_queue`；加深 P1-11 `assistant_handoff`，但不保存 one-shot 长上下文，不改变 truth layer。
-- **风险**：work log 可能包含敏感路径、对象、关系或医疗/财务上下文；必须继承最高 sensitivity，默认 `local_only`，外部 export 默认排除。
+- **æ”¶ç›Š**ï¼šä¿è¯â€œä¸ºä»€ä¹ˆè¿™æ¡è®°å¿†è¢«å†™å…¥/æ›´æ–°â€å¯è§£é‡Šï¼›é¿å…å°ç§˜å¹¶å‘ spawn å¯¼è‡´é‡å¤å€™é€‰ã€citation ä¸¢å¤±ã€å†²çªè¢«è¦†ç›–ï¼›åŒæ—¶ä¿æŒä¸ªäººç‰ˆè½»é‡ï¼Œä¸å¼•å…¥ä¼ä¸šçº§ä»»åŠ¡å¹³å°ã€‚
+- **schema å½±å“ï¼ˆææ¡ˆçº§ï¼‰**ï¼šæ–°å¢ž `ps_agent_work_log` ä¸Ž `domain_agent_queue`ï¼›åŠ æ·± P1-11 `assistant_handoff`ï¼Œä½†ä¸ä¿å­˜ one-shot é•¿ä¸Šä¸‹æ–‡ï¼Œä¸æ”¹å˜ truth layerã€‚
+- **é£Žé™©**ï¼šwork log å¯èƒ½åŒ…å«æ•æ„Ÿè·¯å¾„ã€å¯¹è±¡ã€å…³ç³»æˆ–åŒ»ç–—/è´¢åŠ¡ä¸Šä¸‹æ–‡ï¼›å¿…é¡»ç»§æ‰¿æœ€é«˜ sensitivityï¼Œé»˜è®¤ `local_only`ï¼Œå¤–éƒ¨ export é»˜è®¤æŽ’é™¤ã€‚
 
-### P1-23：统一 `processing_result / audit_result / proposal_result` 最小输出 schema
+### P1-23ï¼šç»Ÿä¸€ `processing_result / audit_result / proposal_result` æœ€å°è¾“å‡º schema
 
-- **要点**：短生命周期 agent 只能返回结构化中间结果，不直接写 confirmed memory 或 truth layer。
+- **è¦ç‚¹**ï¼šçŸ­ç”Ÿå‘½å‘¨æœŸ agent åªèƒ½è¿”å›žç»“æž„åŒ–ä¸­é—´ç»“æžœï¼Œä¸ç›´æŽ¥å†™ confirmed memory æˆ– truth layerã€‚
 
 ```yaml
 processing_result:
@@ -622,5 +622,6 @@ proposal_result:
   recommended_next_step:
 ```
 
-- **收益**：小秘可以用固定方式串接处理、审计、提案；总管可以用 `domain_event_summary_report` 固定字段排下一步。
-- **风险**：字段过多会变成企业级 runner schema；第一版只把它作为文档约定，不实现运行器。
+- **æ”¶ç›Š**ï¼šå°ç§˜å¯ä»¥ç”¨å›ºå®šæ–¹å¼ä¸²æŽ¥å¤„ç†ã€å®¡è®¡ã€ææ¡ˆï¼›æ€»ç®¡å¯ä»¥ç”¨ `domain_event_summary_report` å›ºå®šå­—æ®µæŽ’ä¸‹ä¸€æ­¥ã€‚
+- **é£Žé™©**ï¼šå­—æ®µè¿‡å¤šä¼šå˜æˆä¼ä¸šçº§ runner schemaï¼›ç¬¬ä¸€ç‰ˆåªæŠŠå®ƒä½œä¸ºæ–‡æ¡£çº¦å®šï¼Œä¸å®žçŽ°è¿è¡Œå™¨ã€‚
+

@@ -1,107 +1,57 @@
-# 02. Segmentation
+# 02. Echo Segmentation
 
-Omi 的 segmentation 有四层：audio packet、transcript segment、conversation、derived object。
+Echo should split inputs only as much as needed to preserve evidence and make review practical.
 
-```text
-audio packets
- -> transcript segments
- -> conversation
- -> memories / action_items / events / vectors
-```
+## Segmentation Units
 
-## 1. Audio Packet
-
-设备通过 BLE 或 app 把音频切成小包上传。
-
-设备协议支持多种 codec：
+Recommended units:
 
 ```text
-PCM 16kHz 16-bit mono
-PCM 8kHz 16-bit mono
-Mu-law 16kHz 8-bit mono
-Mu-law 8kHz 8-bit mono
-Opus 16kHz 16-bit mono
+raw_evidence
+evidence_packet
+content_chunk
+email_message
+attachment_asset
+image_asset
+transcript_segment_later
+stream_event_later
+candidate_item
+confirmed_object
+timeline_entry_projection
 ```
 
-这层只是传输单位，还不是语义单位。
+The first runtime does not implement automatic segmentation. It uses one fake evidence packet and hand-written JSON to validate the chain.
 
-## 2. Transcript Segment
+## Chunking Rules
 
-STT provider 把音频流变成 transcript segments。
+When segmentation is added later:
 
-典型 segment：
+- text and Markdown should split by heading or paragraph
+- PDF should split by page and section
+- email should preserve message and attachment boundaries
+- screenshots and photos should preserve asset-level metadata first
+- audio should split into transcript segments only after the text layer is reliable
+- continuous streams should keep raw events separate from merged projections
 
-```json
-{
-  "id": "segment-id",
-  "text": "明天提醒我交房租。",
-  "speaker": "SPEAKER_00",
-  "speaker_id": 0,
-  "is_user": true,
-  "person_id": null,
-  "start": 12.3,
-  "end": 15.8,
-  "speech_profile_processed": true,
-  "stt_provider": "deepgram"
-}
+## Scope And Aggregation
+
+Every derived record should declare what level it belongs to:
+
+```yaml
+scope: asset | message | attachment | chunk | observation | relation | schedule | transaction | event | task
+aggregation_level: atomic | thread | session | event_cluster | duplicate_cluster | daily_view
 ```
 
-segment 的切分来自 STT 的语音边界、speaker diarization 和时间戳。
+This prevents thread summaries, daily views, or duplicate clusters from overwriting atomic facts.
 
-Omi 还会合并某些相邻 segments：
+## Projection Boundary
 
-- 同一个 speaker 连续说话。
-- 两段像是同一句话的延续。
-- speaker profile / STT provider 条件兼容。
-
-## 3. Conversation
-
-conversation 是 Omi 的核心语义容器。
-
-实时录音时，conversation 的边界通常由：
-
-- WebSocket session 开始。
-- 静音超时。
-- 手动结束。
-- 新 conversation 被创建。
-
-默认 `conversation_timeout` 文档中为 120 秒。超过一段静音后，当前 conversation 进入 processing，并创建新的 stub conversation。
-
-状态流：
+Daily logs, timelines, map views, galleries, and summaries are projections. They are useful, but they are not the truth layer.
 
 ```text
-in_progress
- -> processing
- -> completed
+raw evidence / confirmed objects
+ -> projection entry
+ -> daily timeline / domain timeline / export summary
 ```
 
-其他状态：
-
-```text
-merging
-failed
-```
-
-## 4. Derived Object
-
-conversation 处理后会被继续拆成派生对象：
-
-```text
-structured summary
-memories
-action_items
-calendar events
-vector metadata
-trends
-app results
-```
-
-这些 derived objects 都可以回溯到原始 `conversation_id`。
-
-## 5. 关键点
-
-- Omi 不按“每天”做原始 segmentation。
-- Omi 的原始语义单位是 `conversation`。
-- 每天的信息是按 date range 拉 conversations 后生成的 view。
-- transcript segment 用于保留原文，conversation 用于组织事件，derived object 用于长期查询和自动化。
-
+If a projection cannot explain which evidence or object produced it, it is not valid.

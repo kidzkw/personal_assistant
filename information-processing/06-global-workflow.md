@@ -1,8 +1,8 @@
-# 06. Global Workflow（多轮迭代后的个人数据库总流程）
+﻿# 06. Global Workflowï¼ˆå¤šè½®è¿­ä»£åŽçš„ä¸ªäººæ•°æ®åº“æ€»æµç¨‹ï¼‰
 
-这份文档记录当前 personal database / personal assistant information architecture 的最新全局 workflow。它不是 Omi 原始流程的复述，而是在多轮研究后，把 Omi、Paperless-ngx、Immich/PhotoPrism、Notmuch/afew、FHIR/PHR、Actual/Firefly、Monica、Basic Memory 等模式合并后的当前方向。
+è¿™ä»½æ–‡æ¡£è®°å½•å½“å‰ personal database / personal assistant information architecture çš„æœ€æ–°å…¨å±€ workflowã€‚å®ƒä¸æ˜¯ Echo åŽŸå§‹æµç¨‹çš„å¤è¿°ï¼Œè€Œæ˜¯åœ¨å¤šè½®ç ”ç©¶åŽï¼ŒæŠŠ Echoã€Paperless-ngxã€Immich/PhotoPrismã€Notmuch/afewã€FHIR/PHRã€Actual/Fireflyã€Monicaã€Basic Memory ç­‰æ¨¡å¼åˆå¹¶åŽçš„å½“å‰æ–¹å‘ã€‚
 
-一句话版本：
+ä¸€å¥è¯ç‰ˆæœ¬ï¼š
 
 ```text
 file-first inbox
@@ -19,33 +19,33 @@ file-first inbox
  -> controlled sync/actions/export
 ```
 
-## 0. 当前设计原则
+## 0. å½“å‰è®¾è®¡åŽŸåˆ™
 
-当前系统不是 todo app，也不是单纯 PKM，而是一个 whole-life personal database。
+å½“å‰ç³»ç»Ÿä¸æ˜¯ todo appï¼Œä¹Ÿä¸æ˜¯å•çº¯ PKMï¼Œè€Œæ˜¯ä¸€ä¸ª whole-life personal databaseã€‚
 
-它要长期覆盖：
+å®ƒè¦é•¿æœŸè¦†ç›–ï¼š
 
-- 照片、截图、PDF、Markdown、JSON、邮件、附件、聊天导出。
-- 健康记录、就诊、化验、处方、症状、保险、医疗账单。
-- 财务记录、账单、订阅、税务、保险、收据、付款提醒。
-- 人际关系、生日、家庭历史、朋友互动、共同事件。
-- 账户、设备、房产、车辆、旅行、生活行政文件。
-- 未来音频、wearable streams、Telegram/Hermes、Google sync。
+- ç…§ç‰‡ã€æˆªå›¾ã€PDFã€Markdownã€JSONã€é‚®ä»¶ã€é™„ä»¶ã€èŠå¤©å¯¼å‡ºã€‚
+- å¥åº·è®°å½•ã€å°±è¯Šã€åŒ–éªŒã€å¤„æ–¹ã€ç—‡çŠ¶ã€ä¿é™©ã€åŒ»ç–—è´¦å•ã€‚
+- è´¢åŠ¡è®°å½•ã€è´¦å•ã€è®¢é˜…ã€ç¨ŽåŠ¡ã€ä¿é™©ã€æ”¶æ®ã€ä»˜æ¬¾æé†’ã€‚
+- äººé™…å…³ç³»ã€ç”Ÿæ—¥ã€å®¶åº­åŽ†å²ã€æœ‹å‹äº’åŠ¨ã€å…±åŒäº‹ä»¶ã€‚
+- è´¦æˆ·ã€è®¾å¤‡ã€æˆ¿äº§ã€è½¦è¾†ã€æ—…è¡Œã€ç”Ÿæ´»è¡Œæ”¿æ–‡ä»¶ã€‚
+- æœªæ¥éŸ³é¢‘ã€wearable streamsã€Telegram/Hermesã€Google syncã€‚
 
-因此底层原则是：
+å› æ­¤åº•å±‚åŽŸåˆ™æ˜¯ï¼š
 
-1. 原始证据优先，不把 AI 摘要当成真相。
-2. 文件优先，数据库和索引是视图，不是唯一真相。
-3. 所有派生对象必须能回拉 evidence。
-4. 高风险信息默认 candidate，不自动确认。
-5. 检索和同步必须 permission-aware。
-6. 标签必须声明作用域，避免 thread、asset、chunk、observation 混在一起。
+1. åŽŸå§‹è¯æ®ä¼˜å…ˆï¼Œä¸æŠŠ AI æ‘˜è¦å½“æˆçœŸç›¸ã€‚
+2. æ–‡ä»¶ä¼˜å…ˆï¼Œæ•°æ®åº“å’Œç´¢å¼•æ˜¯è§†å›¾ï¼Œä¸æ˜¯å”¯ä¸€çœŸç›¸ã€‚
+3. æ‰€æœ‰æ´¾ç”Ÿå¯¹è±¡å¿…é¡»èƒ½å›žæ‹‰ evidenceã€‚
+4. é«˜é£Žé™©ä¿¡æ¯é»˜è®¤ candidateï¼Œä¸è‡ªåŠ¨ç¡®è®¤ã€‚
+5. æ£€ç´¢å’ŒåŒæ­¥å¿…é¡» permission-awareã€‚
+6. æ ‡ç­¾å¿…é¡»å£°æ˜Žä½œç”¨åŸŸï¼Œé¿å… threadã€assetã€chunkã€observation æ··åœ¨ä¸€èµ·ã€‚
 
 ## 1. File-first Inbox
 
-所有输入先进入文件式 inbox，不急着进入最终 schema。
+æ‰€æœ‰è¾“å…¥å…ˆè¿›å…¥æ–‡ä»¶å¼ inboxï¼Œä¸æ€¥ç€è¿›å…¥æœ€ç»ˆ schemaã€‚
 
-输入包括：
+è¾“å…¥åŒ…æ‹¬ï¼š
 
 - `photo`
 - `screenshot`
@@ -59,18 +59,18 @@ file-first inbox
 - `future_audio`
 - `future_stream_event`
 
-Inbox 的职责：
+Inbox çš„èŒè´£ï¼š
 
-- 保存原始文件或原始 payload。
-- 记录 `ingested_at`、`source_category`、`source_account_id`、`original_path`。
-- 打上最低限度标签：`review_state=inbox`、`processing_state=received`。
-- 不在此阶段做永久事实确认。
+- ä¿å­˜åŽŸå§‹æ–‡ä»¶æˆ–åŽŸå§‹ payloadã€‚
+- è®°å½• `ingested_at`ã€`source_category`ã€`source_account_id`ã€`original_path`ã€‚
+- æ‰“ä¸Šæœ€ä½Žé™åº¦æ ‡ç­¾ï¼š`review_state=inbox`ã€`processing_state=received`ã€‚
+- ä¸åœ¨æ­¤é˜¶æ®µåšæ°¸ä¹…äº‹å®žç¡®è®¤ã€‚
 
 ## 2. Immutable Raw Evidence / Assets
 
-进入系统后的原始证据尽量不可变。
+è¿›å…¥ç³»ç»ŸåŽçš„åŽŸå§‹è¯æ®å°½é‡ä¸å¯å˜ã€‚
 
-核心对象：
+æ ¸å¿ƒå¯¹è±¡ï¼š
 
 ```text
 raw_evidence
@@ -81,7 +81,7 @@ document_asset
 stream_raw_event
 ```
 
-最小字段：
+æœ€å°å­—æ®µï¼š
 
 ```yaml
 id:
@@ -101,19 +101,19 @@ sensitivity:
 sync_permission:
 ```
 
-要点：
+è¦ç‚¹ï¼š
 
-- `occurred_at` 和 `ingested_at` 必须分开。
-- 原件不直接写标签；标签、OCR、caption、修正记录写 sidecar。
-- 大文件证据不放进 Git；文本规范、sidecar、索引描述可以 Git 化。
+- `occurred_at` å’Œ `ingested_at` å¿…é¡»åˆ†å¼€ã€‚
+- åŽŸä»¶ä¸ç›´æŽ¥å†™æ ‡ç­¾ï¼›æ ‡ç­¾ã€OCRã€captionã€ä¿®æ­£è®°å½•å†™ sidecarã€‚
+- å¤§æ–‡ä»¶è¯æ®ä¸æ”¾è¿› Gitï¼›æ–‡æœ¬è§„èŒƒã€sidecarã€ç´¢å¼•æè¿°å¯ä»¥ Git åŒ–ã€‚
 
 ## 3. Sidecar Metadata + Provenance
 
-sidecar 是证据层和结构层之间的桥。
+sidecar æ˜¯è¯æ®å±‚å’Œç»“æž„å±‚ä¹‹é—´çš„æ¡¥ã€‚
 
-照片优先兼容 XMP；其他文件可使用 `*.meta.json` 或 Markdown frontmatter。
+ç…§ç‰‡ä¼˜å…ˆå…¼å®¹ XMPï¼›å…¶ä»–æ–‡ä»¶å¯ä½¿ç”¨ `*.meta.json` æˆ– Markdown frontmatterã€‚
 
-sidecar 需要记录：
+sidecar éœ€è¦è®°å½•ï¼š
 
 ```yaml
 id:
@@ -132,17 +132,17 @@ confidence:
 evidence_refs:
 ```
 
-关键概念：
+å…³é”®æ¦‚å¿µï¼š
 
-- `provenance.document`：原始文件从哪里来。
-- `provenance.record`：当前标签、OCR、摘要、候选对象是谁生成的。
-- `field_origin`：字段来自 EXIF、XMP、OCR、LLM、手工输入、规则等。
-- `field_authority`：冲突时谁更可信。
-- `field_merge_policy`：覆盖、合并、取最高敏感度、人工确认等。
+- `provenance.document`ï¼šåŽŸå§‹æ–‡ä»¶ä»Žå“ªé‡Œæ¥ã€‚
+- `provenance.record`ï¼šå½“å‰æ ‡ç­¾ã€OCRã€æ‘˜è¦ã€å€™é€‰å¯¹è±¡æ˜¯è°ç”Ÿæˆçš„ã€‚
+- `field_origin`ï¼šå­—æ®µæ¥è‡ª EXIFã€XMPã€OCRã€LLMã€æ‰‹å·¥è¾“å…¥ã€è§„åˆ™ç­‰ã€‚
+- `field_authority`ï¼šå†²çªæ—¶è°æ›´å¯ä¿¡ã€‚
+- `field_merge_policy`ï¼šè¦†ç›–ã€åˆå¹¶ã€å–æœ€é«˜æ•æ„Ÿåº¦ã€äººå·¥ç¡®è®¤ç­‰ã€‚
 
 ## 4. Parse / OCR / Chunk / Segment
 
-不同输入类型进入不同切分管线。
+ä¸åŒè¾“å…¥ç±»åž‹è¿›å…¥ä¸åŒåˆ‡åˆ†ç®¡çº¿ã€‚
 
 ```text
 Markdown/text -> chunks
@@ -154,7 +154,7 @@ audio later -> transcript segments + conversation/session
 continuous streams later -> stream + event(timestamp, duration, payload)
 ```
 
-切分后的对象必须带：
+åˆ‡åˆ†åŽçš„å¯¹è±¡å¿…é¡»å¸¦ï¼š
 
 ```yaml
 parent_evidence_id:
@@ -167,7 +167,7 @@ text_or_payload_ref:
 confidence:
 ```
 
-`scope` 是当前迭代后的关键字段：
+`scope` æ˜¯å½“å‰è¿­ä»£åŽçš„å…³é”®å­—æ®µï¼š
 
 ```text
 asset
@@ -183,7 +183,7 @@ event
 task
 ```
 
-`aggregation_level` 用来说明这个对象是原子对象还是聚合视图：
+`aggregation_level` ç”¨æ¥è¯´æ˜Žè¿™ä¸ªå¯¹è±¡æ˜¯åŽŸå­å¯¹è±¡è¿˜æ˜¯èšåˆè§†å›¾ï¼š
 
 ```text
 atomic
@@ -196,7 +196,7 @@ daily_view
 
 ## 5. Scope-aware Candidate Extraction
 
-在 candidate extraction 前，系统应先为可检索内容生成轻量抽象层：
+åœ¨ candidate extraction å‰ï¼Œç³»ç»Ÿåº”å…ˆä¸ºå¯æ£€ç´¢å†…å®¹ç”Ÿæˆè½»é‡æŠ½è±¡å±‚ï¼š
 
 ```text
 chunks / messages / pages / sessions
@@ -205,9 +205,9 @@ chunks / messages / pages / sessions
  -> sparse keys
 ```
 
-这层借鉴 Claude/Anthropic 的 contextual retrieval 与 layered memory：常驻上下文只保留路由索引，细节按需加载；chunk 不只以孤立文本进入索引，而是带上它在整篇文档、邮件 thread、医疗报告、账单周期或照片事件中的位置说明。
+è¿™å±‚å€Ÿé‰´ Claude/Anthropic çš„ contextual retrieval ä¸Ž layered memoryï¼šå¸¸é©»ä¸Šä¸‹æ–‡åªä¿ç•™è·¯ç”±ç´¢å¼•ï¼Œç»†èŠ‚æŒ‰éœ€åŠ è½½ï¼›chunk ä¸åªä»¥å­¤ç«‹æ–‡æœ¬è¿›å…¥ç´¢å¼•ï¼Œè€Œæ˜¯å¸¦ä¸Šå®ƒåœ¨æ•´ç¯‡æ–‡æ¡£ã€é‚®ä»¶ threadã€åŒ»ç–—æŠ¥å‘Šã€è´¦å•å‘¨æœŸæˆ–ç…§ç‰‡äº‹ä»¶ä¸­çš„ä½ç½®è¯´æ˜Žã€‚
 
-新增对象：
+æ–°å¢žå¯¹è±¡ï¼š
 
 ```yaml
 context_routing_index:
@@ -237,11 +237,11 @@ content_chunk:
   bm25_text:
 ```
 
-`contextual_prefix` 是检索辅助文本，不是事实真相。它必须可重新生成，并保留 `generated_by`、`generated_at`、`source_prompt_version`。
+`contextual_prefix` æ˜¯æ£€ç´¢è¾…åŠ©æ–‡æœ¬ï¼Œä¸æ˜¯äº‹å®žçœŸç›¸ã€‚å®ƒå¿…é¡»å¯é‡æ–°ç”Ÿæˆï¼Œå¹¶ä¿ç•™ `generated_by`ã€`generated_at`ã€`source_prompt_version`ã€‚
 
-AI、OCR、规则、文件名解析、邮件 header 解析都只能先生成候选对象。
+AIã€OCRã€è§„åˆ™ã€æ–‡ä»¶åè§£æžã€é‚®ä»¶ header è§£æžéƒ½åªèƒ½å…ˆç”Ÿæˆå€™é€‰å¯¹è±¡ã€‚
 
-候选类型：
+å€™é€‰ç±»åž‹ï¼š
 
 ```text
 memory_observation_candidate
@@ -258,7 +258,7 @@ duplicate_group_candidate
 photo_caption_candidate
 ```
 
-候选对象必须有：
+å€™é€‰å¯¹è±¡å¿…é¡»æœ‰ï¼š
 
 ```yaml
 id:
@@ -275,17 +275,17 @@ sensitivity:
 sync_permission:
 ```
 
-重要规则：
+é‡è¦è§„åˆ™ï¼š
 
-- AI 不直接创造 confirmed memory。
-- OCR 不直接创造 confirmed transaction。
-- 邮件 thread 标签不覆盖单封 message 的事实。
-- duplicate cluster 不自动删除任何原件。
-- 医疗、财务、法律、关系、账户安全默认需要 review。
+- AI ä¸ç›´æŽ¥åˆ›é€  confirmed memoryã€‚
+- OCR ä¸ç›´æŽ¥åˆ›é€  confirmed transactionã€‚
+- é‚®ä»¶ thread æ ‡ç­¾ä¸è¦†ç›–å•å° message çš„äº‹å®žã€‚
+- duplicate cluster ä¸è‡ªåŠ¨åˆ é™¤ä»»ä½•åŽŸä»¶ã€‚
+- åŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€å…³ç³»ã€è´¦æˆ·å®‰å…¨é»˜è®¤éœ€è¦ reviewã€‚
 
 ## 6. Review Gate
 
-在进入 review gate 之前，高风险候选可以先走一层结构化 verification pass。
+åœ¨è¿›å…¥ review gate ä¹‹å‰ï¼Œé«˜é£Žé™©å€™é€‰å¯ä»¥å…ˆèµ°ä¸€å±‚ç»“æž„åŒ– verification passã€‚
 
 ```yaml
 candidate_verification:
@@ -299,21 +299,21 @@ candidate_verification:
   notes:
 ```
 
-这层借鉴 DeepSeek-R1 的 self-verification / reflection 和 Claude long-running agent 的 fresh-context evaluator 思路。它不能替代人工确认，只负责提前标出证据不足、冲突、低置信、需要优先 review 的候选。
+è¿™å±‚å€Ÿé‰´ DeepSeek-R1 çš„ self-verification / reflection å’Œ Claude long-running agent çš„ fresh-context evaluator æ€è·¯ã€‚å®ƒä¸èƒ½æ›¿ä»£äººå·¥ç¡®è®¤ï¼Œåªè´Ÿè´£æå‰æ ‡å‡ºè¯æ®ä¸è¶³ã€å†²çªã€ä½Žç½®ä¿¡ã€éœ€è¦ä¼˜å…ˆ review çš„å€™é€‰ã€‚
 
-Review gate 是当前全局 workflow 的核心控制点。
+Review gate æ˜¯å½“å‰å…¨å±€ workflow çš„æ ¸å¿ƒæŽ§åˆ¶ç‚¹ã€‚
 
-默认进入 review 的内容：
+é»˜è®¤è¿›å…¥ review çš„å†…å®¹ï¼š
 
-- 医疗、健康、症状、化验、处方。
-- 财务、税务、保险、贷款、投资。
-- 法律、身份、账户、安全通知。
-- 人际关系、家庭关系、第三方隐私。
-- 自动生成的长期 memory。
-- 自动生成的 entity relation。
-- 重复文件删除建议。
+- åŒ»ç–—ã€å¥åº·ã€ç—‡çŠ¶ã€åŒ–éªŒã€å¤„æ–¹ã€‚
+- è´¢åŠ¡ã€ç¨ŽåŠ¡ã€ä¿é™©ã€è´·æ¬¾ã€æŠ•èµ„ã€‚
+- æ³•å¾‹ã€èº«ä»½ã€è´¦æˆ·ã€å®‰å…¨é€šçŸ¥ã€‚
+- äººé™…å…³ç³»ã€å®¶åº­å…³ç³»ã€ç¬¬ä¸‰æ–¹éšç§ã€‚
+- è‡ªåŠ¨ç”Ÿæˆçš„é•¿æœŸ memoryã€‚
+- è‡ªåŠ¨ç”Ÿæˆçš„ entity relationã€‚
+- é‡å¤æ–‡ä»¶åˆ é™¤å»ºè®®ã€‚
 
-通用状态：
+é€šç”¨çŠ¶æ€ï¼š
 
 ```text
 review_state:
@@ -332,7 +332,7 @@ claim_state:
   retracted
 ```
 
-所有 confirmed 对象都应该保留：
+æ‰€æœ‰ confirmed å¯¹è±¡éƒ½åº”è¯¥ä¿ç•™ï¼š
 
 ```yaml
 reviewed_by:
@@ -347,11 +347,11 @@ validity:
 
 ## 7. Confirmed Domain Objects
 
-审阅后进入长期核心层。这里才是 assistant 日后稳定使用的主对象。
+å®¡é˜…åŽè¿›å…¥é•¿æœŸæ ¸å¿ƒå±‚ã€‚è¿™é‡Œæ‰æ˜¯ assistant æ—¥åŽç¨³å®šä½¿ç”¨çš„ä¸»å¯¹è±¡ã€‚
 
 ### 7.1 Memory / Knowledge
 
-长期记忆不再等于 summary，而是：
+é•¿æœŸè®°å¿†ä¸å†ç­‰äºŽ summaryï¼Œè€Œæ˜¯ï¼š
 
 ```text
 memory_observation
@@ -359,7 +359,7 @@ entity_relation
 memory_version
 ```
 
-示例：
+ç¤ºä¾‹ï¼š
 
 ```yaml
 memory_observation:
@@ -378,7 +378,7 @@ memory_observation:
 
 ### 7.2 Email / Life Admin
 
-邮件采用双层结构：
+é‚®ä»¶é‡‡ç”¨åŒå±‚ç»“æž„ï¼š
 
 ```text
 email_message
@@ -387,7 +387,7 @@ email_message
  -> derived_item
 ```
 
-派生对象包括：
+æ´¾ç”Ÿå¯¹è±¡åŒ…æ‹¬ï¼š
 
 ```text
 bill_notice
@@ -402,13 +402,13 @@ event
 archive_only_evidence
 ```
 
-thread sensitivity 采用 `max(child.sensitivity)`，但检索时仍按 message/attachment 裁剪权限。
+thread sensitivity é‡‡ç”¨ `max(child.sensitivity)`ï¼Œä½†æ£€ç´¢æ—¶ä»æŒ‰ message/attachment è£å‰ªæƒé™ã€‚
 
 ### 7.3 Finance
 
-财务不直接从 OCR 进入 transaction。
+è´¢åŠ¡ä¸ç›´æŽ¥ä»Ž OCR è¿›å…¥ transactionã€‚
 
-推荐结构：
+æŽ¨èç»“æž„ï¼š
 
 ```text
 financial_evidence
@@ -419,7 +419,7 @@ payment_deadline
 reconciliation_link
 ```
 
-`reconciliation_link` 连接证据、候选项、真实交易和周期义务：
+`reconciliation_link` è¿žæŽ¥è¯æ®ã€å€™é€‰é¡¹ã€çœŸå®žäº¤æ˜“å’Œå‘¨æœŸä¹‰åŠ¡ï¼š
 
 ```yaml
 finance_reconciliation_link:
@@ -436,9 +436,9 @@ finance_reconciliation_link:
 
 ### 7.4 Health / Medical
 
-医疗采用 FHIR-inspired 最小视图，不实现完整 EHR。
+åŒ»ç–—é‡‡ç”¨ FHIR-inspired æœ€å°è§†å›¾ï¼Œä¸å®žçŽ°å®Œæ•´ EHRã€‚
 
-最小对象：
+æœ€å°å¯¹è±¡ï¼š
 
 ```text
 medical_document
@@ -459,22 +459,22 @@ practitioner
 organization
 ```
 
-默认策略：
+é»˜è®¤ç­–ç•¥ï¼š
 
 ```text
 review_required = true
 sync_permission = local_only
-embedding_policy = none 或 summary_only_local
+embedding_policy = none æˆ– summary_only_local
 evidence_refs = required
 ```
 
-系统只做归档、时间线、检索、就诊准备，不做诊断、用药或理赔决策。
+ç³»ç»Ÿåªåšå½’æ¡£ã€æ—¶é—´çº¿ã€æ£€ç´¢ã€å°±è¯Šå‡†å¤‡ï¼Œä¸åšè¯Šæ–­ã€ç”¨è¯æˆ–ç†èµ”å†³ç­–ã€‚
 
 ### 7.5 People / Relationships
 
-关系域独立于普通 memory。
+å…³ç³»åŸŸç‹¬ç«‹äºŽæ™®é€š memoryã€‚
 
-核心对象：
+æ ¸å¿ƒå¯¹è±¡ï¼š
 
 ```text
 person_profile
@@ -484,7 +484,7 @@ relationship_memory
 relationship_reminder
 ```
 
-关系边示例：
+å…³ç³»è¾¹ç¤ºä¾‹ï¼š
 
 ```yaml
 relationship_edge:
@@ -503,7 +503,7 @@ relationship_edge:
 
 ### 7.6 Photo / Media / Documents
 
-照片和文档 pipeline：
+ç…§ç‰‡å’Œæ–‡æ¡£ pipelineï¼š
 
 ```text
 original asset
@@ -515,7 +515,7 @@ original asset
  -> event/date/place/person clustering
 ```
 
-去重对象：
+åŽ»é‡å¯¹è±¡ï¼š
 
 ```text
 duplicate_group
@@ -523,17 +523,17 @@ representative_asset
 stack_member
 ```
 
-重要规则：
+é‡è¦è§„åˆ™ï¼š
 
-- 不自动删除原件。
-- 高敏感 metadata（GPS、人脸、医疗/财务文档类型）默认不自动合并。
-- `original_path`、`display_folder`、`logical_collection` 分离。
+- ä¸è‡ªåŠ¨åˆ é™¤åŽŸä»¶ã€‚
+- é«˜æ•æ„Ÿ metadataï¼ˆGPSã€äººè„¸ã€åŒ»ç–—/è´¢åŠ¡æ–‡æ¡£ç±»åž‹ï¼‰é»˜è®¤ä¸è‡ªåŠ¨åˆå¹¶ã€‚
+- `original_path`ã€`display_folder`ã€`logical_collection` åˆ†ç¦»ã€‚
 
 ## 8. Entity Graph + Timeline + Indexes
 
-confirmed objects 进入图谱和视图层。
+confirmed objects è¿›å…¥å›¾è°±å’Œè§†å›¾å±‚ã€‚
 
-Entity graph 包括：
+Entity graph åŒ…æ‹¬ï¼š
 
 ```text
 person
@@ -550,7 +550,7 @@ medical_provider
 financial_institution
 ```
 
-Timeline 包括：
+Timeline åŒ…æ‹¬ï¼š
 
 ```text
 daily_timeline
@@ -562,7 +562,7 @@ household_timeline
 account_security_timeline
 ```
 
-Indexes 包括：
+Indexes åŒ…æ‹¬ï¼š
 
 ```text
 exact search
@@ -574,11 +574,11 @@ graph lookup
 domain-specific indexes
 ```
 
-Embedding 不是默认全量开启。高敏感内容优先不 embed，或只做本地 summary embedding。
+Embedding ä¸æ˜¯é»˜è®¤å…¨é‡å¼€å¯ã€‚é«˜æ•æ„Ÿå†…å®¹ä¼˜å…ˆä¸ embedï¼Œæˆ–åªåšæœ¬åœ° summary embeddingã€‚
 
 ## 9. Permission-aware Retrieval
 
-Assistant 检索时按层级逐步展开：
+Assistant æ£€ç´¢æ—¶æŒ‰å±‚çº§é€æ­¥å±•å¼€ï¼š
 
 ```text
 1. context_routing_index
@@ -588,17 +588,17 @@ Assistant 检索时按层级逐步展开：
 5. raw evidence pullback
 ```
 
-检索表示拆成三类：
+æ£€ç´¢è¡¨ç¤ºæ‹†æˆä¸‰ç±»ï¼š
 
 ```text
-latent_summary 负责召回
-sparse_keys 负责过滤
-exact_ref 负责证据回拉
+latent_summary è´Ÿè´£å¬å›ž
+sparse_keys è´Ÿè´£è¿‡æ»¤
+exact_ref è´Ÿè´£è¯æ®å›žæ‹‰
 ```
 
-这是从 DeepSeek-V3 MLA / sparse attention 得到的结构启发：压缩表示不替代原始证据，稀疏选择后仍要能回拉精确原文。
+è¿™æ˜¯ä»Ž DeepSeek-V3 MLA / sparse attention å¾—åˆ°çš„ç»“æž„å¯å‘ï¼šåŽ‹ç¼©è¡¨ç¤ºä¸æ›¿ä»£åŽŸå§‹è¯æ®ï¼Œç¨€ç–é€‰æ‹©åŽä»è¦èƒ½å›žæ‹‰ç²¾ç¡®åŽŸæ–‡ã€‚
 
-每一步都检查：
+æ¯ä¸€æ­¥éƒ½æ£€æŸ¥ï¼š
 
 ```text
 sensitivity
@@ -610,21 +610,21 @@ retention_class
 source evidence availability
 ```
 
-回答高风险问题时，必须能回拉证据：
+å›žç­”é«˜é£Žé™©é—®é¢˜æ—¶ï¼Œå¿…é¡»èƒ½å›žæ‹‰è¯æ®ï¼š
 
-- PDF 页码。
-- OCR region。
-- 邮件 message id。
-- 附件 hash。
-- 照片 asset id。
-- 医疗 document reference。
-- 财务 reconciliation link。
+- PDF é¡µç ã€‚
+- OCR regionã€‚
+- é‚®ä»¶ message idã€‚
+- é™„ä»¶ hashã€‚
+- ç…§ç‰‡ asset idã€‚
+- åŒ»ç–— document referenceã€‚
+- è´¢åŠ¡ reconciliation linkã€‚
 
 ## 10. Controlled Sync / Actions / Export
 
-Google、Telegram/Hermes、未来移动端都不是底层真相，而是展示层或行动层。
+Googleã€Telegram/Hermesã€æœªæ¥ç§»åŠ¨ç«¯éƒ½ä¸æ˜¯åº•å±‚çœŸç›¸ï¼Œè€Œæ˜¯å±•ç¤ºå±‚æˆ–è¡ŒåŠ¨å±‚ã€‚
 
-同步前检查：
+åŒæ­¥å‰æ£€æŸ¥ï¼š
 
 ```text
 sync_permission
@@ -635,22 +635,22 @@ target_system
 field_allowlist
 ```
 
-典型策略：
+å…¸åž‹ç­–ç•¥ï¼š
 
 ```text
-task -> 可同步到任务系统
-calendar event -> 可同步到日历
-daily readable summary -> 可选择同步
-medical raw evidence -> 默认 local_only
-relationship graph -> 默认 local_only
-finance/tax/insurance -> 默认 restricted
+task -> å¯åŒæ­¥åˆ°ä»»åŠ¡ç³»ç»Ÿ
+calendar event -> å¯åŒæ­¥åˆ°æ—¥åŽ†
+daily readable summary -> å¯é€‰æ‹©åŒæ­¥
+medical raw evidence -> é»˜è®¤ local_only
+relationship graph -> é»˜è®¤ local_only
+finance/tax/insurance -> é»˜è®¤ restricted
 ```
 
-所有写入、同步、修正、删除建议都应该进入 append-only audit/change log。
+æ‰€æœ‰å†™å…¥ã€åŒæ­¥ã€ä¿®æ­£ã€åˆ é™¤å»ºè®®éƒ½åº”è¯¥è¿›å…¥ append-only audit/change logã€‚
 
-## 11. 和 Omi 原始流程的关系
+## 11. å’Œ Echo åŽŸå§‹æµç¨‹çš„å…³ç³»
 
-Omi 的核心流程是：
+Echo çš„æ ¸å¿ƒæµç¨‹æ˜¯ï¼š
 
 ```text
 conversation
@@ -659,7 +659,7 @@ conversation
  -> vector index
 ```
 
-当前 personal database 的流程升级为：
+å½“å‰ personal database çš„æµç¨‹å‡çº§ä¸ºï¼š
 
 ```text
 evidence/assets
@@ -670,14 +670,17 @@ evidence/assets
  -> assistant actions with privacy gates
 ```
 
-Omi 仍然有价值，因为它提供了“证据 -> 理解 -> 行动/检索”的基本骨架。但当前系统已经扩展为多源、多领域、长期可迁移的 whole-life database。
+Echo ä»ç„¶æœ‰ä»·å€¼ï¼Œå› ä¸ºå®ƒæä¾›äº†â€œè¯æ® -> ç†è§£ -> è¡ŒåŠ¨/æ£€ç´¢â€çš„åŸºæœ¬éª¨æž¶ã€‚ä½†å½“å‰ç³»ç»Ÿå·²ç»æ‰©å±•ä¸ºå¤šæºã€å¤šé¢†åŸŸã€é•¿æœŸå¯è¿ç§»çš„ whole-life databaseã€‚
 
-## 12. 当前最高优先级
+## 12. å½“å‰æœ€é«˜ä¼˜å…ˆçº§
 
-下一步如果要把设计继续固化，优先写这几张表：
+ä¸‹ä¸€æ­¥å¦‚æžœè¦æŠŠè®¾è®¡ç»§ç»­å›ºåŒ–ï¼Œä¼˜å…ˆå†™è¿™å‡ å¼ è¡¨ï¼š
 
-1. `field_cardinality / field_merge_semantics` 跨域表。
-2. 医疗最小视图字段表：Encounter / Observation / MedicationStatement / DiagnosticReport / Claim。
-3. 邮件 thread ingest 规则：Message-ID / In-Reply-To / References / attachment / derived item。
-4. 关系图谱安全策略：哪些关系可自动抽取，哪些必须人工确认，哪些永不外部同步。
-5. sidecar 最小 schema：`id/kind/provenance/labels/evidence_refs/field_origin/field_authority/field_merge_policy`。
+1. `field_cardinality / field_merge_semantics` è·¨åŸŸè¡¨ã€‚
+2. åŒ»ç–—æœ€å°è§†å›¾å­—æ®µè¡¨ï¼šEncounter / Observation / MedicationStatement / DiagnosticReport / Claimã€‚
+3. é‚®ä»¶ thread ingest è§„åˆ™ï¼šMessage-ID / In-Reply-To / References / attachment / derived itemã€‚
+4. å…³ç³»å›¾è°±å®‰å…¨ç­–ç•¥ï¼šå“ªäº›å…³ç³»å¯è‡ªåŠ¨æŠ½å–ï¼Œå“ªäº›å¿…é¡»äººå·¥ç¡®è®¤ï¼Œå“ªäº›æ°¸ä¸å¤–éƒ¨åŒæ­¥ã€‚
+5. sidecar æœ€å° schemaï¼š`id/kind/provenance/labels/evidence_refs/field_origin/field_authority/field_merge_policy`ã€‚
+
+
+

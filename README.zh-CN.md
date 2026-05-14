@@ -1,53 +1,53 @@
-# Personal Assistant / Personal Memory Database
+﻿# Echo Personal Assistant / 个人记忆库
 
-一个 local-first 的个人记忆库实验项目。当前重点不是上云，也不是复杂多 agent 平台，而是先把个人资料处理的最小闭环跑通：
+ä¸€ä¸ª local-first çš„ä¸ªäººè®°å¿†åº“å®žéªŒé¡¹ç›®ã€‚å½“å‰é‡ç‚¹ä¸æ˜¯ä¸Šäº‘ï¼Œä¹Ÿä¸æ˜¯å¤æ‚å¤š agent å¹³å°ï¼Œè€Œæ˜¯å…ˆæŠŠä¸ªäººèµ„æ–™å¤„ç†çš„æœ€å°é—­çŽ¯è·‘é€šï¼š
 
 ```text
 evidence -> sidecar -> candidate -> audit -> proposal -> review -> work log
 ```
 
-当前仓库包含两类内容：
+å½“å‰ä»“åº“åŒ…å«ä¸¤ç±»å†…å®¹ï¼š
 
-- 设计文档：`information-processing/` 和 `docs/`
-- 可运行 dry run：`runtime/`
+- è®¾è®¡æ–‡æ¡£ï¼š`information-processing/` å’Œ `docs/`
+- å¯è¿è¡Œ dry runï¼š`runtime/`
 
-所有示例数据都是 fake data。不要把真实医疗、财务、账号安全、关系、证件或私人文件提交到这个仓库。
+æ‰€æœ‰ç¤ºä¾‹æ•°æ®éƒ½æ˜¯ fake dataã€‚ä¸è¦æŠŠçœŸå®žåŒ»ç–—ã€è´¢åŠ¡ã€è´¦å·å®‰å…¨ã€å…³ç³»ã€è¯ä»¶æˆ–ç§äººæ–‡ä»¶æäº¤åˆ°è¿™ä¸ªä»“åº“ã€‚
 
-## 快速开始
+## å¿«é€Ÿå¼€å§‹
 
-Clone 后进入仓库根目录：
+Clone åŽè¿›å…¥ä»“åº“æ ¹ç›®å½•ï¼š
 
 ```powershell
 git clone https://github.com/kidzkw/personal_assistant.git
 cd personal_assistant
 ```
 
-运行当前 dry run：
+è¿è¡Œå½“å‰ dry runï¼š
 
 ```powershell
 .\runtime\scripts\validate-dry-run.ps1
 ```
 
-预期输出：
+é¢„æœŸè¾“å‡ºï¼š
 
 ```text
 DRY_RUN_OK
 ```
 
-这说明当前 fake packet 的引用链是完整的：
+è¿™è¯´æ˜Žå½“å‰ fake packet çš„å¼•ç”¨é“¾æ˜¯å®Œæ•´çš„ï¼š
 
-- evidence packet 能找到原始 fake evidence
-- candidate 保持在 reviewable 状态
-- processing result 指向 candidate
-- audit result 对 financial 类型要求 human review
-- proposal result 没有直接写 confirmed truth
-- `ps_agent_work_log.next_spawn_allowed=false`，直到 review 完成
+- evidence packet èƒ½æ‰¾åˆ°åŽŸå§‹ fake evidence
+- candidate ä¿æŒåœ¨ reviewable çŠ¶æ€
+- processing result æŒ‡å‘ candidate
+- audit result å¯¹ financial ç±»åž‹è¦æ±‚ human review
+- proposal result æ²¡æœ‰ç›´æŽ¥å†™ confirmed truth
+- `ps_agent_work_log.next_spawn_allowed=false`ï¼Œç›´åˆ° review å®Œæˆ
 
-## 如何使用当前 Runtime
+## å¦‚ä½•ä½¿ç”¨å½“å‰ Runtime
 
-当前 runtime 还不是完整应用，而是一个文件式 dry-run scaffold。它用纯文本和 JSON 模拟第一条个人记忆处理链路。
+å½“å‰ runtime è¿˜ä¸æ˜¯å®Œæ•´åº”ç”¨ï¼Œè€Œæ˜¯ä¸€ä¸ªæ–‡ä»¶å¼ dry-run scaffoldã€‚å®ƒç”¨çº¯æ–‡æœ¬å’Œ JSON æ¨¡æ‹Ÿç¬¬ä¸€æ¡ä¸ªäººè®°å¿†å¤„ç†é“¾è·¯ã€‚
 
-主要入口：
+ä¸»è¦å…¥å£ï¼š
 
 ```text
 runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
@@ -57,7 +57,7 @@ runtime/working/agent_work_log/pswl_fake_finance_001.json
 runtime/scripts/validate-dry-run.ps1
 ```
 
-读链路时按这个顺序看：
+è¯»é“¾è·¯æ—¶æŒ‰è¿™ä¸ªé¡ºåºçœ‹ï¼š
 
 ```text
 1. raw evidence
@@ -85,142 +85,142 @@ runtime/scripts/validate-dry-run.ps1
    runtime/working/agent_work_log/pswl_fake_finance_001.json
 ```
 
-目前新增 fake packet 的方式是手动复制这些 JSON 形状。下一步会做 CLI，把这个过程变成命令。
+ç›®å‰æ–°å¢ž fake packet çš„æ–¹å¼æ˜¯æ‰‹åŠ¨å¤åˆ¶è¿™äº› JSON å½¢çŠ¶ã€‚ä¸‹ä¸€æ­¥ä¼šåš CLIï¼ŒæŠŠè¿™ä¸ªè¿‡ç¨‹å˜æˆå‘½ä»¤ã€‚
 
 ## Agent Chain
 
-当前 agent flow 是串行的，不允许短生命周期 agent 自己乱跑。
+å½“å‰ agent flow æ˜¯ä¸²è¡Œçš„ï¼Œä¸å…è®¸çŸ­ç”Ÿå‘½å‘¨æœŸ agent è‡ªå·±ä¹±è·‘ã€‚
 
 ```text
-总管 / orchestrator
-  -> 分派 work item 给小秘
+æ€»ç®¡ / orchestrator
+  -> åˆ†æ´¾ work item ç»™å°ç§˜
 
-小秘 / secretary_agent
-  -> 启动一条 active processing/audit/proposal chain
+å°ç§˜ / secretary_agent
+  -> å¯åŠ¨ä¸€æ¡ active processing/audit/proposal chain
 
 processing_agent
-  -> 只处理一个小 evidence packet
-  -> 输出 processing_result
+  -> åªå¤„ç†ä¸€ä¸ªå° evidence packet
+  -> è¾“å‡º processing_result
 
 audit_agent
-  -> 检查 processing_result、citation、scope boundary、risk flags
-  -> 输出 audit_result
+  -> æ£€æŸ¥ processing_resultã€citationã€scope boundaryã€risk flags
+  -> è¾“å‡º audit_result
 
 proposal_agent
-  -> 根据 processing_result + audit_result 生成
+  -> æ ¹æ® processing_result + audit_result ç”Ÿæˆ
      review_result / update_proposal / no_action
-  -> 输出 proposal_result
+  -> è¾“å‡º proposal_result
 
-小秘 / secretary_agent
-  -> 生成 domain_event_summary_report
-  -> report 给总管
+å°ç§˜ / secretary_agent
+  -> ç”Ÿæˆ domain_event_summary_report
+  -> report ç»™æ€»ç®¡
 
-总管 / orchestrator
-  -> 更新 ps_agent_work_log
-  -> 决定 next_spawn_allowed
+æ€»ç®¡ / orchestrator
+  -> æ›´æ–° ps_agent_work_log
+  -> å†³å®š next_spawn_allowed
 ```
 
-重要边界：
+é‡è¦è¾¹ç•Œï¼š
 
-- `processing_agent` 不写 truth layer
-- `audit_agent` 不做最终业务判断
-- `proposal_agent` 不直接写 confirmed memory
-- 小秘负责领域汇总
-- 总管负责全局 work log 和下一步解锁
-- 医疗、财务、法律、账号安全、关系信息默认 `local_only` + `review_required`
+- `processing_agent` ä¸å†™ truth layer
+- `audit_agent` ä¸åšæœ€ç»ˆä¸šåŠ¡åˆ¤æ–­
+- `proposal_agent` ä¸ç›´æŽ¥å†™ confirmed memory
+- å°ç§˜è´Ÿè´£é¢†åŸŸæ±‡æ€»
+- æ€»ç®¡è´Ÿè´£å…¨å±€ work log å’Œä¸‹ä¸€æ­¥è§£é”
+- åŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹ã€è´¦å·å®‰å…¨ã€å…³ç³»ä¿¡æ¯é»˜è®¤ `local_only` + `review_required`
 
-## 仓库结构
+## ä»“åº“ç»“æž„
 
 ```text
 docs/
-  Omi 信息处理分析和外部系统参考
+  Echo ä¿¡æ¯å¤„ç†åˆ†æžå’Œå¤–éƒ¨ç³»ç»Ÿå‚è€ƒ
 
 information-processing/
-  个人记忆库 workflow、candidate proposals、research notes
+  ä¸ªäººè®°å¿†åº“ workflowã€candidate proposalsã€research notes
 
 runtime/
-  当前可运行 dry-run scaffold
+  å½“å‰å¯è¿è¡Œ dry-run scaffold
 ```
 
-Runtime 目录：
+Runtime ç›®å½•ï¼š
 
 ```text
 runtime/
   truth/
-    raw_evidence/        # 原始证据或 fake evidence
+    raw_evidence/        # åŽŸå§‹è¯æ®æˆ– fake evidence
     sidecars/            # evidence packet / metadata
-    confirmed_objects/   # 未来 confirmed memory objects
+    confirmed_objects/   # æœªæ¥ confirmed memory objects
   working/
     review_queue/        # candidates waiting for review
     agent_work_log/      # processing/audit/proposal/work log
-    domain_reports/      # 小秘给总管的 summary report
+    domain_reports/      # å°ç§˜ç»™æ€»ç®¡çš„ summary report
   cache/
-    ocr/                 # 可重建 OCR cache
-    fts/                 # 可重建 search cache
-  export/                # 未来导出层
+    ocr/                 # å¯é‡å»º OCR cache
+    fts/                 # å¯é‡å»º search cache
+  export/                # æœªæ¥å¯¼å‡ºå±‚
   scripts/               # local commands
 ```
 
-## 当前命令
+## å½“å‰å‘½ä»¤
 
-验证 dry run：
+éªŒè¯ dry runï¼š
 
 ```powershell
 .\runtime\scripts\validate-dry-run.ps1
 ```
 
-检查仓库状态：
+æ£€æŸ¥ä»“åº“çŠ¶æ€ï¼š
 
 ```powershell
 git status -sb
 ```
 
-当前不需要安装步骤。
+å½“å‰ä¸éœ€è¦å®‰è£…æ­¥éª¤ã€‚
 
-## 当前状态
+## å½“å‰çŠ¶æ€
 
-已完成：
+å·²å®Œæˆï¼š
 
-- 文档骨架
-- local runtime 文件夹结构
+- æ–‡æ¡£éª¨æž¶
+- local runtime æ–‡ä»¶å¤¹ç»“æž„
 - fake financial evidence packet
 - evidence packet sidecar
 - candidate item
-- processing / audit / proposal result 示例
+- processing / audit / proposal result ç¤ºä¾‹
 - domain event summary report
-- PS agent work log 示例
+- PS agent work log ç¤ºä¾‹
 - dry-run validation script
 
-未完成：
+æœªå®Œæˆï¼š
 
-- 真实 inbox ingestion
-- 创建 packet 的 CLI
+- çœŸå®ž inbox ingestion
+- åˆ›å»º packet çš„ CLI
 - SQLite index
 - OCR
 - web UI
-- 真实 agent runner
-- Gmail、Google Calendar、Telegram、Hermes 或 cloud storage 同步
+- çœŸå®ž agent runner
+- Gmailã€Google Calendarã€Telegramã€Hermes æˆ– cloud storage åŒæ­¥
 - Docker Compose
 
-## 路线图
+## è·¯çº¿å›¾
 
 ### Phase 0: Static Dry Run
 
-状态：当前阶段。
+çŠ¶æ€ï¼šå½“å‰é˜¶æ®µã€‚
 
-目标：只用 fake data，让记忆处理 workflow 可以被检查。
+ç›®æ ‡ï¼šåªç”¨ fake dataï¼Œè®©è®°å¿†å¤„ç† workflow å¯ä»¥è¢«æ£€æŸ¥ã€‚
 
-里程碑：
+é‡Œç¨‹ç¢‘ï¼š
 
-- 保持 fake evidence packet chain 有效
-- 保持 `validate-dry-run.ps1` 通过
-- 在 schema 还便宜的时候继续调整 JSON 形状
+- ä¿æŒ fake evidence packet chain æœ‰æ•ˆ
+- ä¿æŒ `validate-dry-run.ps1` é€šè¿‡
+- åœ¨ schema è¿˜ä¾¿å®œçš„æ—¶å€™ç»§ç»­è°ƒæ•´ JSON å½¢çŠ¶
 
 ### Phase 1: Tiny CLI
 
-目标：停止手写每个 fake packet。
+ç›®æ ‡ï¼šåœæ­¢æ‰‹å†™æ¯ä¸ª fake packetã€‚
 
-计划命令：
+è®¡åˆ’å‘½ä»¤ï¼š
 
 ```powershell
 personal-db new-fake-packet --type bill
@@ -229,13 +229,13 @@ personal-db show-work-log
 personal-db list-review-queue
 ```
 
-第一版可以用 PowerShell 或 Python。它仍然应该写 plain files，不要一上来变成 database-first system。
+ç¬¬ä¸€ç‰ˆå¯ä»¥ç”¨ PowerShell æˆ– Pythonã€‚å®ƒä»ç„¶åº”è¯¥å†™ plain filesï¼Œä¸è¦ä¸€ä¸Šæ¥å˜æˆ database-first systemã€‚
 
 ### Phase 2: SQLite Index
 
-目标：让 lookup 和 review queue navigation 更轻松，但不让 SQLite 变成 truth layer。
+ç›®æ ‡ï¼šè®© lookup å’Œ review queue navigation æ›´è½»æ¾ï¼Œä½†ä¸è®© SQLite å˜æˆ truth layerã€‚
 
-SQLite 应该索引：
+SQLite åº”è¯¥ç´¢å¼•ï¼š
 
 - evidence packets
 - candidates
@@ -243,38 +243,38 @@ SQLite 应该索引：
 - PS work logs
 - review queue status
 
-Truth 仍然是文件层。
+Truth ä»ç„¶æ˜¯æ–‡ä»¶å±‚ã€‚
 
 ### Phase 3: Review Queue
 
-目标：让 human review 可操作。
+ç›®æ ‡ï¼šè®© human review å¯æ“ä½œã€‚
 
-需要支持：
+éœ€è¦æ”¯æŒï¼š
 
-- 列出 candidates
-- 显示 citation refs
+- åˆ—å‡º candidates
+- æ˜¾ç¤º citation refs
 - approve / correct / reject / archive
-- 保持 review result 可追溯
-- 不自动确认高风险领域
+- ä¿æŒ review result å¯è¿½æº¯
+- ä¸è‡ªåŠ¨ç¡®è®¤é«˜é£Žé™©é¢†åŸŸ
 
 ### Phase 4: Real Ingestion
 
-目标：fake flow 稳定到无聊之后，再导入受控本地文件。
+ç›®æ ‡ï¼šfake flow ç¨³å®šåˆ°æ— èŠä¹‹åŽï¼Œå†å¯¼å…¥å—æŽ§æœ¬åœ°æ–‡ä»¶ã€‚
 
-可能的第一批 ingester：
+å¯èƒ½çš„ç¬¬ä¸€æ‰¹ ingesterï¼š
 
 - local text file
 - local PDF metadata-only packet
 - screenshot / image metadata packet
 - email export packet
 
-仍然不做自动医疗、财务、法律或账号安全决策。
+ä»ç„¶ä¸åšè‡ªåŠ¨åŒ»ç–—ã€è´¢åŠ¡ã€æ³•å¾‹æˆ–è´¦å·å®‰å…¨å†³ç­–ã€‚
 
 ### Phase 5: Local App Or Backend
 
-目标：文件 workflow 稳定后，再加一个小型 local UI 或 API。
+ç›®æ ‡ï¼šæ–‡ä»¶ workflow ç¨³å®šåŽï¼Œå†åŠ ä¸€ä¸ªå°åž‹ local UI æˆ– APIã€‚
 
-可能技术栈：
+å¯èƒ½æŠ€æœ¯æ ˆï¼š
 
 - Python FastAPI
 - Next.js local dashboard
@@ -283,9 +283,9 @@ Truth 仍然是文件层。
 
 ### Phase 6: Docker Compose
 
-目标：只有当项目真的有值得打包的依赖时，再做 Docker。
+ç›®æ ‡ï¼šåªæœ‰å½“é¡¹ç›®çœŸçš„æœ‰å€¼å¾—æ‰“åŒ…çš„ä¾èµ–æ—¶ï¼Œå†åš Dockerã€‚
 
-Docker 在这些东西出现后会有价值：
+Docker åœ¨è¿™äº›ä¸œè¥¿å‡ºçŽ°åŽä¼šæœ‰ä»·å€¼ï¼š
 
 - backend service
 - worker process
@@ -293,13 +293,13 @@ Docker 在这些东西出现后会有价值：
 - local search service
 - repeatable development environment
 
-在那之前，Docker 主要只是把简单文件行为藏进 container volume 权限里。
+åœ¨é‚£ä¹‹å‰ï¼ŒDocker ä¸»è¦åªæ˜¯æŠŠç®€å•æ–‡ä»¶è¡Œä¸ºè—è¿› container volume æƒé™é‡Œã€‚
 
-## 安全规则
+## å®‰å…¨è§„åˆ™
 
-不要提交真实个人数据。
+ä¸è¦æäº¤çœŸå®žä¸ªäººæ•°æ®ã€‚
 
-绝对不要 commit：
+ç»å¯¹ä¸è¦ commitï¼š
 
 - medical records
 - financial statements
@@ -312,7 +312,7 @@ Docker 在这些东西出现后会有价值：
 - real chat exports
 - real photos with GPS/person metadata
 
-推荐把未来真实本地实验放在这些已被 git ignore 的目录：
+æŽ¨èæŠŠæœªæ¥çœŸå®žæœ¬åœ°å®žéªŒæ”¾åœ¨è¿™äº›å·²è¢« git ignore çš„ç›®å½•ï¼š
 
 ```text
 runtime/local/
@@ -320,4 +320,6 @@ runtime/private/
 runtime/inbox/
 ```
 
-这些目录可以以后用于真实本地实验，但不要进入 GitHub。
+è¿™äº›ç›®å½•å¯ä»¥ä»¥åŽç”¨äºŽçœŸå®žæœ¬åœ°å®žéªŒï¼Œä½†ä¸è¦è¿›å…¥ GitHubã€‚
+
+

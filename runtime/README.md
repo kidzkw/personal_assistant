@@ -1,4 +1,4 @@
-# Personal DB Runtime
+﻿# Echo Runtime
 
 This folder is the first local-first deployment scaffold for the personal memory database.
 
@@ -30,3 +30,4 @@ Expected result:
 ```text
 DRY_RUN_OK
 ```
+

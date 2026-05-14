@@ -1,104 +1,75 @@
-# 01. Information Inflow
+# 01. Echo Information Inflow
 
-Omi 的信息入口不是单一硬件，而是多 source 输入。设备、手机、桌面、外部集成都可以进入同一套后端处理链路。
+Echo treats every input as evidence first. It does not assume that one device, one app, or one account is the center of the system.
 
-## 1. 输入来源
+## Input Sources
 
-Omi 后端的 `ConversationSource` 包括：
-
-```text
-friend
-omi
-fieldy
-bee
-plaud
-frame
-friend_com
-apple_watch
-phone
-phone_call
-desktop
-openglass
-screenpipe
-workflow
-sdcard
-external_integration
-limitless
-onboarding
-unknown
-```
-
-这说明 Omi 的 ingestion 层不是绑定某个 device，而是把 device 当作 `source` 标签。
-
-## 2. 实时音频入口
-
-实时音频主要进入 `/v4/listen` WebSocket。
-
-典型参数：
+Echo should eventually accept controlled local inputs from:
 
 ```text
-uid
-language
-sample_rate
-codec
-channels
-include_speech_profile
-conversation_timeout
-source
-custom_stt
+manual_note
+local_text_file
+pdf
+image
+screenshot
+email_export
+chat_export
+calendar_export
+future_audio
+future_wearable_stream
+future_location_export
 ```
 
-流程：
+Early versions should not ingest everything automatically. The first deployable runtime only uses fake data and manually created evidence packets.
+
+## Inbox Rule
+
+All inputs first become inbox items:
+
+```yaml
+inbox_item:
+  id:
+  source_category:
+  original_path:
+  ingested_at:
+  basic_type:
+  review_state: inbox
+  sensitivity:
+  sync_permission:
+```
+
+The inbox layer should preserve the source and defer semantic judgment. Echo should not convert a file, email, or screenshot into a long-term memory until there is evidence, citation, and review.
+
+## Evidence Packet
+
+High-value evidence is wrapped in a small packet:
+
+```yaml
+evidence_packet:
+  packet_id:
+  original_ref:
+  meta_ref:
+  text_or_ocr_ref:
+  preview_ref:
+  redacted_ref:
+  packet_status:
+  sensitivity:
+```
+
+The packet is not a replacement for the original file. It is a navigation bundle that helps Echo connect candidates, citations, and review results back to the source.
+
+## Current Runtime Example
+
+The current dry run uses one fake financial evidence file:
 
 ```text
-device/app opens WebSocket
- -> backend authenticates uid
- -> backend opens STT WebSocket, normally Deepgram
- -> audio bytes stream in
- -> transcript segments stream out
- -> backend writes segments into current conversation
+runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
 ```
 
-## 3. 外部文本入口
-
-Omi 也支持 `external_integration` / `workflow` 类型的数据。
-
-外部文本会带一个 `text_source`：
+Its packet sidecar is:
 
 ```text
-audio_transcript
-message
-other_text
+runtime/truth/sidecars/ep_fake_bill_001.meta.json
 ```
 
-不同 `text_source` 会走不同 structured extraction：
-
-```text
-audio_transcript -> get_transcript_structure + extract_action_items
-message          -> get_message_structure
-other_text       -> summarize_experience_text
-```
-
-## 4. Inflow 的第一步落点
-
-实时链路中，WebSocket 一开始会创建一个 stub conversation：
-
-```json
-{
-  "status": "in_progress",
-  "source": "omi",
-  "created_at": "...",
-  "started_at": "...",
-  "transcript_segments": []
-}
-```
-
-后面所有 segments 都追加到这个 conversation。
-
-## 5. 关键点
-
-- Omi 先统一成 `conversation`，再处理业务含义。
-- `source` 是一等字段，用于记录信息来自哪里。
-- 实时音频是 streaming ingestion，外部文字是 batch ingestion。
-- 入口不决定最终分类，最终分类由后面的 LLM structured processing 决定。
-
+This proves the shape of the inflow without touching real personal data.

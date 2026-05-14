@@ -1,106 +1,72 @@
-# 05. End-To-End Map
+# 05. Echo End-To-End Map
 
-这是一张把 Omi 的 inflow、segmentation、labeling、transition to DB 合起来的总图。
+This is the current end-to-end map for Echo's local-first personal memory workflow.
 
 ```mermaid
-flowchart TB
-  A["Device / App / External Integration"] --> B["Source Label"]
-  B --> C["/v4/listen WebSocket or POST conversation"]
-  C --> D["Create Stub Conversation"]
-  D --> E["status = in_progress"]
-  E --> F["Audio Stream / Text Payload"]
-  F --> G["STT / Text Normalization"]
-  G --> H["Transcript Segments"]
-  H --> I["Segment Labels: speaker, speaker_id, person_id, time"]
-  I --> J["Append to Firestore Conversation"]
-  J --> K["Silence Timeout or Manual End"]
-  K --> L["status = processing"]
-  L --> M["LLM Structured Processing"]
-  M --> N["title / overview / emoji / category"]
-  M --> O["action_items"]
-  M --> P["events"]
-  M --> Q["memories"]
-  N --> R["Update Conversation"]
-  O --> S["Standalone action_items Collection"]
-  P --> R
-  Q --> T["memories Collection"]
-  R --> U["Conversation Vector from Structured"]
-  S --> V["Action Item Vector"]
-  T --> W["Memory Vector"]
-  U --> X["status = completed"]
+flowchart TD
+  A["Inbox item"] --> B["Raw evidence / asset"]
+  B --> C["Sidecar metadata"]
+  C --> D["Evidence packet"]
+  D --> E["Candidate item"]
+  E --> F["Processing agent"]
+  F --> G["processing_result"]
+  G --> H["Audit agent"]
+  H --> I["audit_result"]
+  I --> J["Proposal agent"]
+  J --> K["proposal_result"]
+  K --> L["Secretary agent / 小秘"]
+  L --> M["domain_event_summary_report"]
+  M --> N["Orchestrator / 总管"]
+  N --> O["ps_agent_work_log"]
+  O --> P{"Human review needed?"}
+  P -->|yes| Q["Review queue"]
+  P -->|no, low risk only| R["Confirmed object"]
+  Q --> S["confirm / correct / reject / archive"]
+  S --> R
+  R --> T["Search / timeline / reminders"]
+  T --> U["Evidence pullback"]
 ```
 
-## Processing Order
+## Serial Agent Rule
 
-实际处理顺序可以理解为：
+Each secretary agent can only run one active processing/audit/proposal chain at a time.
 
 ```text
-1. Receive input
-2. Assign source/system labels
-3. Create or update conversation
-4. Segment transcript
-5. Wait for conversation boundary
-6. Decide discard or keep
-7. Generate structured labels
-8. Save structured conversation
-9. Extract memories
-10. Extract action items
-11. Write standalone collections
-12. Create vector indexes
-13. Mark completed
+active_chain_id != null
+  -> no new chain
+
+active_chain_id == null and next_spawn_allowed == true
+  -> next chain may start
 ```
 
-## What Is Stored Where
+## Review Gate
 
-| Data | Stored In | Purpose |
-| --- | --- | --- |
-| raw transcript segments | `conversations` | source evidence |
-| title / overview / category | `conversation.structured` | list display and summary |
-| action items inline | `conversation.structured.action_items` | backward compatibility and source context |
-| action items standalone | `action_items` | task query, completion, sync |
-| long-term facts | `memories` | user memory |
-| semantic search for conversations | Pinecone `ns1` | search conversations |
-| semantic search for memories | Pinecone `ns2` | search facts |
-| semantic search for tasks | Pinecone `ns4` | search tasks |
-
-## Label Hierarchy
+The review gate is mandatory for:
 
 ```text
-Conversation
-  system labels:
-    uid, source, status, created_at, started_at, finished_at
-    visibility, folder_id, is_locked, data_protection_level
-
-  transcript segment labels:
-    speaker, speaker_id, person_id, is_user, start, end, stt_provider
-
-  semantic labels:
-    title, overview, emoji, category
-
-  derived labels:
-    memory.category
-    action_item.completed
-    action_item.due_at
-    event.start
-
-  retrieval labels:
-    people, topics, entities, dates, created_at
+medical
+financial
+legal
+account_security
+identity
+relationship
+delete_or_merge_proposal
 ```
 
-## Most Important Design Pattern
+Low-risk generated artifacts can be automated only when they remain in working/cache layers.
 
-Omi keeps three layers separate:
+## Evidence Pullback
+
+Every important answer should be able to pull back to:
 
 ```text
-Evidence layer:
-  transcript_segments inside conversation
-
-Understanding layer:
-  structured summary and labels
-
-Action/retrieval layer:
-  memories, action_items, vectors
+file path
+content hash
+packet id
+page / line / message / timestamp locator
+citation ref
+review result
+work log entry
 ```
 
-这个分层是它信息处理系统最值得借鉴的地方。
-
+If Echo cannot explain why a memory was written or updated, the write is not valid.

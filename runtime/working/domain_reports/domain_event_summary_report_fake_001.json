@@ -1,7 +1,7 @@
-{
+﻿{
   "domain_event_summary_report": {
     "report_id": "domain_report_fake_finance_001",
-    "secretary_agent": "finance_xiaomi",
+    "secretary_agent": "finance_secretary",
     "work_log_id": "pswl_fake_finance_001",
     "processing_result_ref": "working/agent_work_log/processing_result_fake_001.json",
     "audit_result_ref": "working/agent_work_log/audit_result_fake_001.json",
@@ -15,3 +15,4 @@
     }
   }
 }
+

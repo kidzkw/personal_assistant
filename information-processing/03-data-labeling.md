@@ -1,202 +1,67 @@
-# 03. Data Labeling
+# 03. Echo Data Labeling
 
-Omi 的 labeling 分为五类：系统标签、segment 标签、structured 语义标签、memory/action 标签、vector metadata。
+Echo uses labels as routing and review aids. Labels are not truth by themselves.
 
-## 1. 系统标签
+## Minimal Label Vector
 
-系统标签是后端字段，不一定由 LLM 生成。
-
-Conversation 级别：
-
-```text
-id
-uid
-created_at
-started_at
-finished_at
-source
-language
-status
-visibility
-starred
-folder_id
-is_locked
-data_protection_level
-private_cloud_sync_enabled
-discarded
+```yaml
+domain: daily | photo | health | finance | email | relationship | admin | travel | account | other
+media_type: text | pdf | image | screenshot | email | json | audio_later
+semantic_type: note | bill | receipt | lab_result | visit | task | event | memory | contact | security_notice
+sensitivity: normal | private | health | financial | legal | account_security | relationship
+review_state: inbox | candidate | needs_review | confirmed | archived | rejected
+sync_permission: local_only | summary_ok | task_calendar_ok
+interpretation_level: raw | source_semantic | derived_candidate | reviewed_fact | projection
 ```
 
-这些字段负责回答：
+## Source Membership
 
-- 谁的数据？
-- 从哪里来？
-- 什么时候发生？
-- 处理到哪一步？
-- 是否可见？
-- 是否锁定？
-- 是否加密？
+Source folders, albums, labels, mailbox folders, and export batches should not be mixed with personal semantic labels.
 
-## 2. Segment 标签
+Use `source_membership`:
 
-Transcript segment 级别：
-
-```text
-id
-text
-speaker
-speaker_id
-is_user
-person_id
-start
-end
-speech_profile_processed
-stt_provider
-translations
+```yaml
+source_membership:
+  canonical_ref:
+  source_category:
+  source_account_ref:
+  source_label_or_folder:
+  membership_type: source_folder | source_label | album | mailbox_folder | thread | collection | export_batch
+  first_seen_at:
+  last_seen_at:
+  sensitivity:
+  publish_policy:
 ```
 
-这些字段负责 speaker diarization 和人物绑定。
+This lets one asset appear in multiple source containers without duplicating the long-term semantic object.
 
-区别：
+## Review Labels
 
-```text
-speaker      = STT 给出的文本标签，例如 SPEAKER_00
-speaker_id   = 数字 speaker id，例如 0
-person_id    = Omi 识别或用户指定的联系人 id
-is_user      = 这句话是否被认为是用户本人说的
-```
-
-## 3. Structured 语义标签
-
-conversation 结束后，LLM 生成 `structured`：
-
-```json
-{
-  "title": "Rent Payment Reminder",
-  "overview": "User mentioned needing to pay rent tomorrow.",
-  "emoji": "🏠",
-  "category": "finance",
-  "action_items": [],
-  "events": []
-}
-```
-
-`category` 是 enum，包括：
+High-risk domains default to review:
 
 ```text
-personal
-education
 health
-finance
+financial
 legal
-philosophy
-spiritual
-science
-entrepreneurship
-parenting
-romantic
-travel
-inspiration
-technology
-business
-social
-work
-sports
-politics
-literature
-history
-architecture
-music
-weather
-news
-entertainment
-psychology
-real
-design
-family
-economics
-environment
-other
+account_security
+relationship
+identity
 ```
 
-## 4. Memory 标签
+Low-risk OCR, file previews, and fake dry-run data can remain automated as long as they do not become confirmed memory.
 
-Memory 有自己的 category：
+## Citation Labels
 
-```text
-system
-interesting
-manual
+Candidates in high-risk domains require citation refs:
+
+```yaml
+citation_ref:
+  evidence_ref:
+  artifact_ref:
+  locator:
+  excerpt:
+  extraction_method:
+  confidence:
 ```
 
-含义：
-
-```text
-system      = 关于用户的事实、偏好、关系、项目、习惯、观点
-interesting = 从对话中提取的有长期价值的信息或建议
-manual      = 用户手动创建的 memory
-```
-
-Memory 还带：
-
-```text
-conversation_id
-tags
-reviewed
-user_review
-visibility
-manually_added
-edited
-scoring
-app_id
-data_protection_level
-is_locked
-kg_extracted
-```
-
-## 5. Action Item 标签
-
-Action item 字段：
-
-```text
-description
-completed
-created_at
-updated_at
-due_at
-completed_at
-conversation_id
-is_locked
-sync_requested
-exported
-```
-
-它们用于：
-
-- 查询未完成任务。
-- 查询今天/本周 due 的任务。
-- 回溯任务来自哪段 conversation。
-- 同步到 Apple Reminders 等外部任务系统。
-
-## 6. Vector Metadata
-
-Omi 会为 conversation 提取检索 metadata：
-
-```text
-people
-topics
-entities
-dates
-created_at
-uid
-```
-
-这部分不是用户直接看到的 label，而是给 semantic search 用。
-
-## 7. Labeling 关键点
-
-- `source/status/time/security` 是系统标签。
-- `speaker/person` 是 segment 标签。
-- `title/overview/category` 是 LLM 语义标签。
-- `memory category` 和 `action item status` 是派生对象标签。
-- `people/topics/entities/dates` 是检索标签。
-
+No citation means no confirmed memory.
