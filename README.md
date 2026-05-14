@@ -1,171 +1,323 @@
 # Personal Assistant / Personal Memory Database
 
-This repository contains the first local-first scaffold for a personal assistant memory system.
-
-The current goal is not to deploy a cloud service or a full multi-agent platform. The goal is to make a small, inspectable personal database workflow that can preserve evidence, produce reviewable candidates, and keep every memory update traceable back to source material.
-
-## Current Status
-
-This is a documentation-first and dry-run-first repository.
-
-Implemented so far:
-
-- information architecture docs under `information-processing/`
-- Omi information-processing analysis under `docs/`
-- a local dry-run runtime under `runtime/`
-- a fake finance evidence packet that exercises the current agent chain
-- a PowerShell validation script that checks the dry-run references
-
-Not implemented yet:
-
-- real inbox ingestion
-- OCR pipeline
-- database migrations
-- real agent runner
-- Telegram / Google / email sync
-- medical, financial, legal, or account-security automation
-- Docker deployment
-
-## Core Design
-
-The system is local-first:
+一个 local-first 的个人记忆库实验项目。当前重点不是上云、不是复杂多 agent 平台，而是先把个人资料处理的最小闭环跑通：
 
 ```text
-inbox
- -> raw evidence / asset
- -> sidecar metadata
- -> evidence packet
- -> candidate extraction
- -> review gate
- -> confirmed memory object
- -> search / timeline / reminders
- -> evidence pullback
+evidence -> sidecar -> candidate -> audit -> proposal -> review -> work log
 ```
 
-Sensitive domains such as medical, financial, legal, account security, and relationship data default to:
+当前仓库包含两类内容：
 
-```text
-sync_permission = local_only
-review_required = true
+- 设计文档：`information-processing/` 和 `docs/`
+- 可运行 dry run：`runtime/`
+
+所有示例数据都是 fake data。不要把真实医疗、财务、账号安全、关系、证件或私人文件提交到这个仓库。
+
+## Quick Start
+
+Clone 后进入仓库根目录：
+
+```powershell
+git clone https://github.com/kidzkw/personal_assistant.git
+cd personal_assistant
 ```
 
-## Agent Workflow
-
-The current agent workflow is intentionally serial and lightweight.
-
-```text
-orchestrator / 总管
-  -> assigns work item to secretary agent / 小秘
-
-secretary agent / 小秘
-  -> starts one active processing/audit/proposal chain
-
-processing_agent
-  -> handles one small evidence packet
-  -> returns processing_result
-
-audit_agent
-  -> checks processing_result, citations, scope boundary, and risk flags
-  -> returns audit_result
-
-proposal_agent
-  -> generates review_result / update_proposal / no_action
-  -> returns proposal_result
-
-secretary agent / 小秘
-  -> creates domain_event_summary_report
-  -> reports back to orchestrator / 总管
-
-orchestrator / 总管
-  -> updates ps_agent_work_log
-  -> decides next_spawn_allowed
-```
-
-Short-lived agents never write confirmed memory or the truth layer directly. They only produce structured intermediate results. The secretary agent summarizes the domain event, and the orchestrator owns the global work log.
-
-## Repository Layout
-
-```text
-docs/
-  Omi and external information-processing analysis
-
-information-processing/
-  Current workflow docs, candidate proposals, and research notes
-
-runtime/
-  Local dry-run scaffold
-```
-
-Runtime layout:
-
-```text
-runtime/
-  truth/
-    raw_evidence/
-    sidecars/
-    confirmed_objects/
-  working/
-    review_queue/
-    agent_work_log/
-    domain_reports/
-  cache/
-    ocr/
-    fts/
-  export/
-  scripts/
-```
-
-## Run The Dry Run
-
-From the repository root:
+运行当前 dry run：
 
 ```powershell
 .\runtime\scripts\validate-dry-run.ps1
 ```
 
-Expected output:
+预期输出：
 
 ```text
 DRY_RUN_OK
 ```
 
-The dry run uses fake financial data only:
+这说明当前 fake packet 的引用链是完整的：
+
+- evidence packet 能找到原始 fake evidence
+- candidate 保持在 reviewable 状态
+- processing result 指向 candidate
+- audit result 对 financial 类型要求 human review
+- proposal result 没有直接写 confirmed truth
+- `ps_agent_work_log.next_spawn_allowed=false`，直到 review 完成
+
+## How To Use The Current Runtime
+
+当前 runtime 还不是完整应用，而是一个文件式 dry-run scaffold。它用纯文本和 JSON 模拟第一条个人记忆处理链路。
+
+主要入口：
 
 ```text
 runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
+runtime/truth/sidecars/ep_fake_bill_001.meta.json
+runtime/working/review_queue/candidate_bill_fake_001.json
+runtime/working/agent_work_log/pswl_fake_finance_001.json
+runtime/scripts/validate-dry-run.ps1
 ```
 
-The chain validates that:
-
-- the fake evidence packet exists
-- the candidate remains reviewable
-- the processing result points to the candidate
-- the audit result requires human review for financial data
-- the proposal result does not write confirmed truth
-- the PS work log keeps `next_spawn_allowed=false` until review
-
-## Why No Docker Yet?
-
-Docker is useful later, once the project has a real backend, worker, OCR stack, or local service dependencies.
-
-For now the safest deployment path is:
+读链路时按这个顺序看：
 
 ```text
-local files + JSON sidecars + dry-run validation
+1. raw evidence
+   runtime/truth/raw_evidence/ev_fake_credit_card_bill_2026_05.txt
+
+2. evidence packet sidecar
+   runtime/truth/sidecars/ep_fake_bill_001.meta.json
+
+3. reviewable candidate
+   runtime/working/review_queue/candidate_bill_fake_001.json
+
+4. processing result
+   runtime/working/agent_work_log/processing_result_fake_001.json
+
+5. audit result
+   runtime/working/agent_work_log/audit_result_fake_001.json
+
+6. proposal result
+   runtime/working/agent_work_log/proposal_result_fake_001.json
+
+7. domain event summary report
+   runtime/working/domain_reports/domain_event_summary_report_fake_001.json
+
+8. PS work log
+   runtime/working/agent_work_log/pswl_fake_finance_001.json
 ```
 
-This keeps the early system easy to inspect and avoids hiding privacy-sensitive file permissions behind containers too early.
+目前新增 fake packet 的方式是手动复制这些 JSON 形状。下一步会做 CLI，把这个过程变成命令。
 
-## Next Milestones
+## Agent Chain
 
-1. Add a tiny CLI for creating new fake packets.
-2. Add a SQLite index for packet/work-log lookup.
-3. Add a local review queue command.
-4. Add real ingestion only after the fake chain is boringly reliable.
-5. Add Docker Compose only after there is a backend or worker worth packaging.
+当前 agent flow 是串行的，不允许短生命周期 agent 自己乱跑。
 
-## Safety Notes
+```text
+总管 / orchestrator
+  -> 分派 work item 给小秘
 
-Do not commit real personal evidence, medical records, financial records, credentials, account-security notices, or private relationship data to this repository.
+小秘 / secretary_agent
+  -> 启动一条 active processing/audit/proposal chain
 
-The included runtime data is fake and exists only to test the workflow shape.
+processing_agent
+  -> 只处理一个小 evidence packet
+  -> 输出 processing_result
+
+audit_agent
+  -> 检查 processing_result、citation、scope boundary、risk flags
+  -> 输出 audit_result
+
+proposal_agent
+  -> 根据 processing_result + audit_result 生成
+     review_result / update_proposal / no_action
+  -> 输出 proposal_result
+
+小秘 / secretary_agent
+  -> 生成 domain_event_summary_report
+  -> report 给总管
+
+总管 / orchestrator
+  -> 更新 ps_agent_work_log
+  -> 决定 next_spawn_allowed
+```
+
+重要边界：
+
+- `processing_agent` 不写 truth layer
+- `audit_agent` 不做最终业务判断
+- `proposal_agent` 不直接写 confirmed memory
+- 小秘负责领域汇总
+- 总管负责全局 work log 和下一步解锁
+- 医疗、财务、法律、账号安全、关系信息默认 `local_only` + `review_required`
+
+## Repository Layout
+
+```text
+docs/
+  Omi 信息处理分析和外部系统参考
+
+information-processing/
+  个人记忆库 workflow、candidate proposals、research notes
+
+runtime/
+  当前可运行 dry-run scaffold
+```
+
+Runtime 目录：
+
+```text
+runtime/
+  truth/
+    raw_evidence/        # 原始证据或 fake evidence
+    sidecars/            # evidence packet / metadata
+    confirmed_objects/   # 未来 confirmed memory objects
+  working/
+    review_queue/        # candidates waiting for review
+    agent_work_log/      # processing/audit/proposal/work log
+    domain_reports/      # 小秘给总管的 summary report
+  cache/
+    ocr/                 # 可重建 OCR cache
+    fts/                 # 可重建 search cache
+  export/                # 未来导出层
+  scripts/               # local commands
+```
+
+## Current Commands
+
+Validate the dry run:
+
+```powershell
+.\runtime\scripts\validate-dry-run.ps1
+```
+
+Check repository status:
+
+```powershell
+git status -sb
+```
+
+No install step is required yet.
+
+## Current Status
+
+Done:
+
+- documentation scaffold
+- local runtime folder layout
+- fake financial evidence packet
+- evidence packet sidecar
+- candidate item
+- processing/audit/proposal result examples
+- domain event summary report
+- PS agent work log example
+- dry-run validation script
+
+Not done:
+
+- real inbox ingestion
+- CLI for creating packets
+- SQLite index
+- OCR
+- web UI
+- real agent runner
+- sync with Gmail, Google Calendar, Telegram, Hermes, or cloud storage
+- Docker Compose
+
+## Roadmap
+
+### Phase 0: Static Dry Run
+
+Status: current.
+
+Goal: make the memory workflow inspectable with fake data only.
+
+Milestones:
+
+- Keep fake evidence packet chain valid
+- Keep `validate-dry-run.ps1` passing
+- Refine JSON schemas while they are still cheap to change
+
+### Phase 1: Tiny CLI
+
+Goal: stop hand-writing every fake packet.
+
+Planned commands:
+
+```powershell
+personal-db new-fake-packet --type bill
+personal-db validate
+personal-db show-work-log
+personal-db list-review-queue
+```
+
+First version can be PowerShell or Python. It should still write plain files, not a database-first system.
+
+### Phase 2: SQLite Index
+
+Goal: make lookup and review queue navigation easier without making SQLite the truth layer.
+
+SQLite should index:
+
+- evidence packets
+- candidates
+- processing/audit/proposal results
+- PS work logs
+- review queue status
+
+Truth remains the file layer.
+
+### Phase 3: Review Queue
+
+Goal: make human review practical.
+
+Needed behavior:
+
+- list candidates
+- show citation refs
+- approve / correct / reject / archive
+- keep review result traceable
+- do not auto-confirm high-risk domains
+
+### Phase 4: Real Ingestion
+
+Goal: import controlled local files after fake flow is boringly reliable.
+
+Possible first ingesters:
+
+- local text file
+- local PDF metadata-only packet
+- screenshot / image metadata packet
+- email export packet
+
+Still no automatic medical, financial, legal, or account-security decisions.
+
+### Phase 5: Local App Or Backend
+
+Goal: add a small local UI or API only after the file workflow is stable.
+
+Possible stack:
+
+- Python FastAPI
+- Next.js local dashboard
+- SQLite + FTS5
+- local filesystem storage
+
+### Phase 6: Docker Compose
+
+Goal: package dependencies only when there is something worth packaging.
+
+Docker becomes useful when we have:
+
+- backend service
+- worker process
+- OCR dependency
+- local search service
+- repeatable development environment
+
+Until then, Docker would mostly hide simple file behavior behind container volume permissions.
+
+## Safety Rules
+
+Do not commit real personal data.
+
+Never commit:
+
+- medical records
+- financial statements
+- legal documents
+- credentials
+- account-security notices
+- private relationship notes
+- identity documents
+- real email exports
+- real chat exports
+- real photos with GPS/person metadata
+
+Recommended local-only folders are ignored by git:
+
+```text
+runtime/local/
+runtime/private/
+runtime/inbox/
+```
+
+Use those folders later for real local experiments, but keep them out of GitHub.
