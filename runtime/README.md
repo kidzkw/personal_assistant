@@ -64,15 +64,13 @@ Check the dry run over HTTP:
 curl.exe http://localhost:8080/dry-run
 ```
 
-Send a small local-only item to inbox from the browser dashboard. It supports typed text, file selection, drag/drop, and pasted screenshots/photos.
+Send a small local-only item to inbox from the browser dashboard. It supports direct text paste, typed text, file selection, drag/drop, and pasted screenshots/photos. Title/source/sensitivity are filled automatically.
 
 Text API example:
 
 ```powershell
 $body = @{
-  title = "Test note"
   text = "Remember to review this later."
-  sensitivity = "personal"
 } | ConvertTo-Json -Compress
 
 Invoke-RestMethod `

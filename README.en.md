@@ -66,15 +66,13 @@ Or open the browser dashboard:
 http://localhost:8080/
 ```
 
-To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can drag a file, choose a file, paste a screenshot/photo, or type text. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
+To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can paste text directly, drag a file, choose a file, or paste a screenshot/photo. Title, source, and sensitivity are filled automatically. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
 
 Text API example:
 
 ```powershell
 $body = @{
-  title = "Test note"
   text = "Remember to review the fake bill workflow."
-  sensitivity = "personal"
 } | ConvertTo-Json -Compress
 
 Invoke-RestMethod `

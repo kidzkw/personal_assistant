@@ -32,7 +32,7 @@ http://localhost:8080/
 
 Send a local-only item / 发送本地内容到 inbox:
 
-Open the dashboard and use the Dropbox area for files, screenshots, photos, or typed text.
+Open the dashboard and use the Dropbox area. You can paste text directly, drag files/photos in, or choose a file. Title/source/sensitivity are filled automatically.
 
 ```text
 http://localhost:8080/
@@ -42,9 +42,7 @@ PowerShell text example:
 
 ```powershell
 $body = @{
-  title = "Test note"
   text = "Remember to review this later."
-  sensitivity = "personal"
 } | ConvertTo-Json -Compress
 
 Invoke-RestMethod `

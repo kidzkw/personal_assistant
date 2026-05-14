@@ -56,6 +56,7 @@ def _write_text_inbox_item(payload: dict) -> dict:
     sensitivity = str(payload.get("sensitivity", "personal")).strip() or "personal"
     source_type = str(payload.get("source_type", "manual_note")).strip() or "manual_note"
     title = str(payload.get("title", "")).strip()
+    auto_title = text.splitlines()[0][:80] if text.splitlines() else text[:80]
 
     inbox_id = _make_inbox_id()
     item = {
@@ -64,7 +65,7 @@ def _write_text_inbox_item(payload: dict) -> dict:
             "created_at": _now_iso(),
             "source_type": source_type,
             "input_type": "text",
-            "title": title or None,
+            "title": title or auto_title or None,
             "text": text,
             "sensitivity": sensitivity,
             "sync_permission": "local_only",
@@ -120,7 +121,7 @@ def _write_file_inbox_item(payload: dict) -> dict:
             "created_at": _now_iso(),
             "source_type": source_type,
             "input_type": "file",
-            "title": title or None,
+            "title": title or filename,
             "original_filename": filename,
             "stored_filename": filename,
             "content_type": content_type,
@@ -511,44 +512,21 @@ def _home_html() -> bytes:
 
       <section class="wide">
         <h2>Inbox Dropbox</h2>
-        <label for="inbox-title">Title</label>
-        <input id="inbox-title" type="text" placeholder="Optional short title">
-        <div class="field-row">
-          <div>
-            <label for="source-type">Source</label>
-            <select id="source-type">
-              <option value="manual_note">manual_note</option>
-              <option value="local_text">local_text</option>
-              <option value="email_note">email_note</option>
-              <option value="chat_note">chat_note</option>
-            </select>
-          </div>
-          <div>
-            <label for="sensitivity">Sensitivity</label>
-            <select id="sensitivity">
-              <option value="personal">personal</option>
-              <option value="financial">financial</option>
-              <option value="medical">medical</option>
-              <option value="relationship">relationship</option>
-              <option value="account_security">account_security</option>
-            </select>
-          </div>
-        </div>
         <div id="dropbox" class="dropbox" tabindex="0">
           <div>
-            <strong>Drop, paste, or choose a file</strong>
-            <p>Use this for screenshots, photos, PDFs, or a small text note. Everything lands in local inbox review, not confirmed memory.</p>
+            <strong>Paste text, drop files, or choose a file</strong>
+            <p>Echo records it directly into local inbox review. No title required; metadata is automatic.</p>
             <div class="actions" style="justify-content: center;">
               <button class="primary" type="button" onclick="document.getElementById('file-input').click()">Choose File</button>
-              <button type="button" onclick="sendTypedText()">Send Typed Text</button>
+              <button type="button" onclick="sendTypedText()">Save Text</button>
             </div>
           </div>
         </div>
         <input id="file-input" type="file" multiple style="display: none;">
         <div id="file-list" class="file-list"></div>
         <div style="margin-top: 12px;">
-          <label for="inbox-text">Optional typed text</label>
-          <textarea id="inbox-text" placeholder="You can still type or paste text here, then click Send Typed Text."></textarea>
+          <label for="inbox-text">Text</label>
+          <textarea id="inbox-text" placeholder="Paste or type a note here, then click Save Text."></textarea>
         </div>
         <div class="actions">
           <button type="button" onclick="loadInbox()">Refresh Inbox</button>
@@ -616,9 +594,8 @@ def _home_html() -> bytes:
 
     function commonInboxPayload() {
       return {
-        title: document.getElementById("inbox-title").value,
-        source_type: document.getElementById("source-type").value,
-        sensitivity: document.getElementById("sensitivity").value
+        source_type: "manual_note",
+        sensitivity: "personal"
       };
     }
 
@@ -683,7 +660,8 @@ def _home_html() -> bytes:
             continue;
           }
           const payload = {
-            ...commonInboxPayload(),
+            source_type: "file_drop",
+            sensitivity: "personal",
             filename: file.name || `pasted-${Date.now()}`,
             content_type: file.type || "application/octet-stream",
             data_base64: await fileToBase64(file)
@@ -752,7 +730,9 @@ def _home_html() -> bytes:
         return;
       }
       const text = event.clipboardData.getData("text/plain");
-      if (text && document.activeElement === dropbox) {
+      const tag = document.activeElement && document.activeElement.tagName;
+      const isEditable = ["INPUT", "TEXTAREA", "SELECT"].includes(tag);
+      if (text && (document.activeElement === dropbox || !isEditable)) {
         sendInboxText(text);
       }
     });

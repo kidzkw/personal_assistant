@@ -66,15 +66,13 @@ curl.exe http://localhost:8080/dry-run
 http://localhost:8080/
 ```
 
-要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以拖文件、选择文件、粘贴截图/照片，也可以输入文本。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是 confirmed memory。
+要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以直接粘贴一段文字、拖文件、选择文件、粘贴截图/照片。title、source、sensitivity 会自动补。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是 confirmed memory。
 
 文本 API 示例：
 
 ```powershell
 $body = @{
-  title = "Test note"
   text = "Remember to review the fake bill workflow."
-  sensitivity = "personal"
 } | ConvertTo-Json -Compress
 
 Invoke-RestMethod `
