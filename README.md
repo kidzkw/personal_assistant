@@ -30,7 +30,15 @@ Browser dashboard / 浏览器面板:
 http://localhost:8080/
 ```
 
-Send a local-only note / 发送本地文本到 inbox:
+Send a local-only item / 发送本地内容到 inbox:
+
+Open the dashboard and use the Dropbox area for files, screenshots, photos, or typed text.
+
+```text
+http://localhost:8080/
+```
+
+PowerShell text example:
 
 ```powershell
 $body = @{

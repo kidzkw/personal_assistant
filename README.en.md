@@ -66,9 +66,9 @@ Or open the browser dashboard:
 http://localhost:8080/
 ```
 
-To send a small local-only note into Echo, use the dashboard's "Send Text To Inbox" form. The item is saved under `runtime/inbox/text/` and remains `review_state=inbox`; it is not confirmed memory.
+To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can drag a file, choose a file, paste a screenshot/photo, or type text. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
 
-API example:
+Text API example:
 
 ```powershell
 $body = @{
@@ -89,6 +89,8 @@ List received inbox items:
 ```powershell
 curl.exe http://localhost:8080/inbox
 ```
+
+The dashboard is preferred for files and photos because it handles browser file reading for you.
 
 Expected `/dry-run` response includes:
 
@@ -260,6 +262,7 @@ Done:
 - dry-run validation script
 - minimal Docker server with `/health` and `/dry-run`
 - local text inbox endpoint with `POST /inbox/text`
+- local file/photo inbox endpoint with `POST /inbox/file`
 
 Not done:
 

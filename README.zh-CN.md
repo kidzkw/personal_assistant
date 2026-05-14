@@ -66,9 +66,9 @@ curl.exe http://localhost:8080/dry-run
 http://localhost:8080/
 ```
 
-要把一小段信息发给 Echo，可以用 dashboard 里的 "Send Text To Inbox" 表单。它会写入 `runtime/inbox/text/`，状态保持为 `review_state=inbox`；这还不是 confirmed memory。
+要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以拖文件、选择文件、粘贴截图/照片，也可以输入文本。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是 confirmed memory。
 
-API 示例：
+文本 API 示例：
 
 ```powershell
 $body = @{
@@ -89,6 +89,8 @@ Invoke-RestMethod `
 ```powershell
 curl.exe http://localhost:8080/inbox
 ```
+
+文件和照片建议直接用浏览器 dashboard，因为它会帮你处理本地文件读取。
 
 `/dry-run` 的预期响应包含：
 
@@ -261,6 +263,7 @@ git status -sb
 - dry-run validation script
 - 带 `/health` 和 `/dry-run` 的最小 Docker server
 - `POST /inbox/text` 本地文本 inbox endpoint
+- `POST /inbox/file` 本地文件 / 照片 inbox endpoint
 
 未完成：
 

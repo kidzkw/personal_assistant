@@ -49,6 +49,7 @@ GET /health
 GET /dry-run
 GET /inbox
 POST /inbox/text
+POST /inbox/file
 ```
 
 Open the browser dashboard:
@@ -63,7 +64,9 @@ Check the dry run over HTTP:
 curl.exe http://localhost:8080/dry-run
 ```
 
-Send a small local-only text item to inbox:
+Send a small local-only item to inbox from the browser dashboard. It supports typed text, file selection, drag/drop, and pasted screenshots/photos.
+
+Text API example:
 
 ```powershell
 $body = @{
@@ -83,4 +86,5 @@ Inbox items are written to:
 
 ```text
 runtime/inbox/text/
+runtime/inbox/files/
 ```

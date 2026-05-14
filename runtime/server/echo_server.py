@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import base64
+import re
 import sys
 import uuid
 from http import HTTPStatus
@@ -13,6 +15,7 @@ from datetime import datetime, timezone
 
 RUNTIME_ROOT = Path(os.environ.get("ECHO_RUNTIME_ROOT", Path(__file__).resolve().parents[1])).resolve()
 INBOX_TEXT_ROOT = RUNTIME_ROOT / "inbox" / "text"
+INBOX_FILE_ROOT = RUNTIME_ROOT / "inbox" / "files"
 sys.path.insert(0, str(RUNTIME_ROOT))
 
 from lib.dry_run_validator import DryRunValidationError, validate_dry_run  # noqa: E402
@@ -29,6 +32,18 @@ def _now_iso() -> str:
 def _make_inbox_id() -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"inbox_text_{stamp}_{uuid.uuid4().hex[:8]}"
+
+
+def _make_file_inbox_id() -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"inbox_file_{stamp}_{uuid.uuid4().hex[:8]}"
+
+
+def _safe_filename(filename: str) -> str:
+    name = Path(filename or "pasted-file").name.strip()
+    name = re.sub(r"[^A-Za-z0-9._ -]+", "_", name)
+    name = re.sub(r"\s+", " ", name).strip(" .")
+    return name[:120] or "pasted-file"
 
 
 def _write_text_inbox_item(payload: dict) -> dict:
@@ -72,36 +87,124 @@ def _write_text_inbox_item(payload: dict) -> dict:
     }
 
 
-def _list_text_inbox_items(limit: int = 50) -> dict:
-    if not INBOX_TEXT_ROOT.exists():
-        return {"status": "ok", "items": []}
+def _write_file_inbox_item(payload: dict) -> dict:
+    filename = _safe_filename(str(payload.get("filename", "pasted-file")))
+    content_type = str(payload.get("content_type", "application/octet-stream")).strip() or "application/octet-stream"
+    encoded = str(payload.get("data_base64", "")).strip()
+    if not encoded:
+        raise ValueError("data_base64 is required")
 
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise ValueError("data_base64 is not valid base64") from exc
+
+    if not data:
+        raise ValueError("file is empty")
+    if len(data) > 10 * 1024 * 1024:
+        raise ValueError("file is too large; keep one inbox file under 10 MB")
+
+    sensitivity = str(payload.get("sensitivity", "personal")).strip() or "personal"
+    source_type = str(payload.get("source_type", "file_drop")).strip() or "file_drop"
+    title = str(payload.get("title", "")).strip()
+
+    inbox_id = _make_file_inbox_id()
+    item_root = INBOX_FILE_ROOT / inbox_id
+    item_root.mkdir(parents=True, exist_ok=False)
+    file_path = item_root / filename
+    file_path.write_bytes(data)
+
+    meta = {
+        "inbox_item": {
+            "inbox_id": inbox_id,
+            "created_at": _now_iso(),
+            "source_type": source_type,
+            "input_type": "file",
+            "title": title or None,
+            "original_filename": filename,
+            "stored_filename": filename,
+            "content_type": content_type,
+            "size_bytes": len(data),
+            "file_ref": str(file_path.relative_to(RUNTIME_ROOT)),
+            "sensitivity": sensitivity,
+            "sync_permission": "local_only",
+            "review_state": "inbox",
+            "processing_state": "not_processed",
+            "note": "Local-only inbox file. This is not confirmed memory.",
+        }
+    }
+    meta_path = item_root / "meta.json"
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    return {
+        "status": "ok",
+        "message": "INBOX_FILE_CREATED",
+        "inbox_id": inbox_id,
+        "path": str(meta_path.relative_to(RUNTIME_ROOT)),
+        "file_ref": str(file_path.relative_to(RUNTIME_ROOT)),
+        "content_type": content_type,
+        "size_bytes": len(data),
+        "review_state": "inbox",
+        "processing_state": "not_processed",
+    }
+
+
+def _list_inbox_items(limit: int = 50) -> dict:
     items = []
-    for path in sorted(INBOX_TEXT_ROOT.glob("*.json"), reverse=True)[:limit]:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
-            item = data.get("inbox_item", {})
-            items.append(
-                {
-                    "inbox_id": item.get("inbox_id"),
-                    "created_at": item.get("created_at"),
-                    "title": item.get("title"),
-                    "source_type": item.get("source_type"),
-                    "sensitivity": item.get("sensitivity"),
-                    "review_state": item.get("review_state"),
-                    "processing_state": item.get("processing_state"),
-                    "preview": str(item.get("text", ""))[:160],
-                    "path": str(path.relative_to(RUNTIME_ROOT)),
-                }
-            )
-        except (OSError, json.JSONDecodeError) as exc:
-            items.append({"path": str(path.relative_to(RUNTIME_ROOT)), "error": str(exc)})
 
-    return {"status": "ok", "items": items}
+    if INBOX_TEXT_ROOT.exists():
+        for path in INBOX_TEXT_ROOT.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8-sig"))
+                item = data.get("inbox_item", {})
+                items.append(
+                    {
+                        "inbox_id": item.get("inbox_id"),
+                        "created_at": item.get("created_at"),
+                        "input_type": item.get("input_type"),
+                        "title": item.get("title"),
+                        "source_type": item.get("source_type"),
+                        "sensitivity": item.get("sensitivity"),
+                        "review_state": item.get("review_state"),
+                        "processing_state": item.get("processing_state"),
+                        "preview": str(item.get("text", ""))[:160],
+                        "path": str(path.relative_to(RUNTIME_ROOT)),
+                    }
+                )
+            except (OSError, json.JSONDecodeError) as exc:
+                items.append({"path": str(path.relative_to(RUNTIME_ROOT)), "error": str(exc)})
+
+    if INBOX_FILE_ROOT.exists():
+        for path in INBOX_FILE_ROOT.glob("*/meta.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8-sig"))
+                item = data.get("inbox_item", {})
+                items.append(
+                    {
+                        "inbox_id": item.get("inbox_id"),
+                        "created_at": item.get("created_at"),
+                        "input_type": item.get("input_type"),
+                        "title": item.get("title"),
+                        "source_type": item.get("source_type"),
+                        "sensitivity": item.get("sensitivity"),
+                        "review_state": item.get("review_state"),
+                        "processing_state": item.get("processing_state"),
+                        "preview": item.get("original_filename"),
+                        "content_type": item.get("content_type"),
+                        "size_bytes": item.get("size_bytes"),
+                        "file_ref": item.get("file_ref"),
+                        "path": str(path.relative_to(RUNTIME_ROOT)),
+                    }
+                )
+            except (OSError, json.JSONDecodeError) as exc:
+                items.append({"path": str(path.relative_to(RUNTIME_ROOT)), "error": str(exc)})
+
+    items.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
+    return {"status": "ok", "items": items[:limit]}
 
 
 def _home_html() -> bytes:
-    return b"""<!doctype html>
+    return """<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -232,6 +335,60 @@ def _home_html() -> bytes:
       resize: vertical;
     }
 
+    .dropbox {
+      display: grid;
+      place-items: center;
+      min-height: 190px;
+      margin-top: 12px;
+      border: 1.5px dashed #aab5a5;
+      border-radius: 8px;
+      background: #f9faf7;
+      padding: 22px;
+      text-align: center;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+
+    .dropbox.dragging {
+      border-color: var(--accent);
+      background: #edf8f2;
+    }
+
+    .dropbox strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .dropbox p {
+      max-width: 560px;
+      margin: 0 auto;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .file-list {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0 0;
+    }
+
+    .file-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #ffffff;
+      font-size: 13px;
+    }
+
+    .file-row span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .field-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -353,7 +510,7 @@ def _home_html() -> bytes:
       </section>
 
       <section class="wide">
-        <h2>Send Text To Inbox</h2>
+        <h2>Inbox Dropbox</h2>
         <label for="inbox-title">Title</label>
         <input id="inbox-title" type="text" placeholder="Optional short title">
         <div class="field-row">
@@ -377,12 +534,23 @@ def _home_html() -> bytes:
             </select>
           </div>
         </div>
+        <div id="dropbox" class="dropbox" tabindex="0">
+          <div>
+            <strong>Drop, paste, or choose a file</strong>
+            <p>Use this for screenshots, photos, PDFs, or a small text note. Everything lands in local inbox review, not confirmed memory.</p>
+            <div class="actions" style="justify-content: center;">
+              <button class="primary" type="button" onclick="document.getElementById('file-input').click()">Choose File</button>
+              <button type="button" onclick="sendTypedText()">Send Typed Text</button>
+            </div>
+          </div>
+        </div>
+        <input id="file-input" type="file" multiple style="display: none;">
+        <div id="file-list" class="file-list"></div>
         <div style="margin-top: 12px;">
-          <label for="inbox-text">Text</label>
-          <textarea id="inbox-text" placeholder="Paste a small local-only note here. It will enter inbox review, not confirmed memory."></textarea>
+          <label for="inbox-text">Optional typed text</label>
+          <textarea id="inbox-text" placeholder="You can still type or paste text here, then click Send Typed Text."></textarea>
         </div>
         <div class="actions">
-          <button class="primary" type="button" onclick="sendInboxText()">Send To Inbox</button>
           <button type="button" onclick="loadInbox()">Refresh Inbox</button>
           <a class="button" href="/inbox">Open Inbox JSON</a>
         </div>
@@ -398,6 +566,9 @@ def _home_html() -> bytes:
   <script>
     const output = document.getElementById("output");
     const statusEl = document.getElementById("service-status");
+    const dropbox = document.getElementById("dropbox");
+    const fileInput = document.getElementById("file-input");
+    const fileList = document.getElementById("file-list");
 
     function show(data) {
       output.textContent = JSON.stringify(data, null, 2);
@@ -443,12 +614,18 @@ def _home_html() -> bytes:
       }
     }
 
-    async function sendInboxText() {
-      const payload = {
+    function commonInboxPayload() {
+      return {
         title: document.getElementById("inbox-title").value,
         source_type: document.getElementById("source-type").value,
-        sensitivity: document.getElementById("sensitivity").value,
-        text: document.getElementById("inbox-text").value
+        sensitivity: document.getElementById("sensitivity").value
+      };
+    }
+
+    async function sendInboxText(text) {
+      const payload = {
+        ...commonInboxPayload(),
+        text
       };
       try {
         const response = await fetch("/inbox/text", {
@@ -469,6 +646,68 @@ def _home_html() -> bytes:
       }
     }
 
+    async function sendTypedText() {
+      await sendInboxText(document.getElementById("inbox-text").value);
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || "");
+          resolve(result.includes(",") ? result.split(",")[1] : result);
+        };
+        reader.onerror = () => reject(reader.error || new Error("File read failed"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function addFileRow(file, state) {
+      const row = document.createElement("div");
+      row.className = "file-row";
+      row.innerHTML = `<span>${file.name || "pasted-file"}</span><span>${state} · ${formatBytes(file.size || 0)}</span>`;
+      fileList.prepend(row);
+    }
+
+    async function sendFiles(files) {
+      for (const file of files) {
+        try {
+          if (file.size > 10 * 1024 * 1024) {
+            addFileRow(file, "too large");
+            continue;
+          }
+          const payload = {
+            ...commonInboxPayload(),
+            filename: file.name || `pasted-${Date.now()}`,
+            content_type: file.type || "application/octet-stream",
+            data_base64: await fileToBase64(file)
+          };
+          const response = await fetch("/inbox/file", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          show(data);
+          if (!response.ok) throw new Error(data.error || data.message || response.statusText);
+          addFileRow(file, "saved");
+          statusEl.textContent = "Inbox Saved";
+          statusEl.className = "ok";
+        } catch (error) {
+          addFileRow(file, "failed");
+          statusEl.textContent = "Inbox Failed";
+          statusEl.className = "error";
+          output.textContent = String(error);
+        }
+      }
+    }
+
     async function loadInbox() {
       try {
         const data = await requestJson("/inbox");
@@ -481,11 +720,48 @@ def _home_html() -> bytes:
       }
     }
 
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropbox.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropbox.classList.add("dragging");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropbox.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropbox.classList.remove("dragging");
+      });
+    });
+
+    dropbox.addEventListener("drop", (event) => {
+      const files = Array.from(event.dataTransfer.files || []);
+      if (files.length) sendFiles(files);
+    });
+
+    fileInput.addEventListener("change", () => {
+      const files = Array.from(fileInput.files || []);
+      if (files.length) sendFiles(files);
+      fileInput.value = "";
+    });
+
+    window.addEventListener("paste", (event) => {
+      const files = Array.from(event.clipboardData.files || []);
+      if (files.length) {
+        sendFiles(files);
+        return;
+      }
+      const text = event.clipboardData.getData("text/plain");
+      if (text && document.activeElement === dropbox) {
+        sendInboxText(text);
+      }
+    });
+
     loadHealth();
   </script>
 </body>
 </html>
-"""
+""".encode("utf-8")
 
 
 class EchoRequestHandler(BaseHTTPRequestHandler):
@@ -508,12 +784,26 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.CREATED, result)
             return
 
+        if route == "/inbox/file":
+            try:
+                payload = self._read_json_body(max_bytes=14 * 1024 * 1024)
+                result = _write_file_inbox_item(payload)
+            except ValueError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"status": "error", "message": "INVALID_INBOX_FILE", "error": str(exc)})
+                return
+            except OSError as exc:
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "INBOX_WRITE_FAILED", "error": str(exc)})
+                return
+
+            self._send_json(HTTPStatus.CREATED, result)
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
             },
         )
 
@@ -530,7 +820,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
                 {
                     "service": "echo-personal-assistant",
                     "mode": "local-docker-dry-run",
-                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
+                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
                 },
             )
             return
@@ -564,7 +854,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             return
 
         if route == "/inbox":
-            self._send_json(HTTPStatus.OK, _list_text_inbox_items())
+            self._send_json(HTTPStatus.OK, _list_inbox_items())
             return
 
         self._send_json(
@@ -572,7 +862,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
             },
         )
 
