@@ -17,6 +17,13 @@ cd personal_assistant
 .\runtime\scripts\validate-dry-run.ps1
 ```
 
+Run the local Docker server / 启动本地 Docker server:
+
+```powershell
+docker compose up --build
+curl.exe http://localhost:8080/dry-run
+```
+
 Expected output / 预期输出:
 
 ```text

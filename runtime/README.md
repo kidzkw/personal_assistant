@@ -10,6 +10,7 @@ It is intentionally small:
 - `export/` stores redacted or allowlisted output bundles.
 
 Current deployment mode: local dry run only. No Docker, no cloud sync, no real medical/financial/account data.
+The repository also includes a minimal Docker HTTP server for validating this dry run locally.
 
 ## Dry Run Flow
 
@@ -29,4 +30,25 @@ Expected result:
 
 ```text
 DRY_RUN_OK
+```
+
+## Docker Server
+
+From the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Available endpoints:
+
+```text
+GET /health
+GET /dry-run
+```
+
+Check the dry run over HTTP:
+
+```powershell
+curl.exe http://localhost:8080/dry-run
 ```

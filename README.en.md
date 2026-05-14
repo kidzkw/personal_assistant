@@ -43,6 +43,45 @@ This means the fake packet chain is internally consistent:
 - the proposal result does not write confirmed truth
 - `ps_agent_work_log.next_spawn_allowed=false` until review is complete
 
+## Local Docker Server
+
+The repository now includes a minimal Docker server for local validation. It does not ingest real personal data and does not run autonomous agents. It exposes the current dry-run workflow over HTTP.
+
+Start it from the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Then check:
+
+```powershell
+curl.exe http://localhost:8080/health
+curl.exe http://localhost:8080/dry-run
+```
+
+Expected `/dry-run` response includes:
+
+```json
+{
+  "status": "ok",
+  "message": "DRY_RUN_OK"
+}
+```
+
+Stop it:
+
+```powershell
+docker compose down
+```
+
+Without Docker Compose:
+
+```powershell
+docker build -t echo-personal-assistant:local .
+docker run --rm -p 8080:8080 echo-personal-assistant:local
+```
+
 ## How To Use The Current Runtime
 
 The current runtime is not a full application. It is a file-based dry-run scaffold that uses plain text and JSON to model one personal-memory processing chain.
@@ -189,6 +228,7 @@ Done:
 - domain event summary report
 - PS agent work log example
 - dry-run validation script
+- minimal Docker server with `/health` and `/dry-run`
 
 Not done:
 
@@ -199,7 +239,7 @@ Not done:
 - web UI
 - real agent runner
 - sync with Gmail, Google Calendar, Telegram, Hermes, or cloud storage
-- Docker Compose
+- production Docker packaging with real workers or OCR dependencies
 
 ## Roadmap
 
@@ -282,9 +322,11 @@ Possible stack:
 
 ### Phase 6: Docker Compose
 
-Goal: package dependencies only when there is something worth packaging.
+Status: minimal local server scaffold exists.
 
-Docker becomes useful when we have:
+Goal: package heavier dependencies only when there is something worth packaging.
+
+Docker becomes more useful when we have:
 
 - backend service
 - worker process

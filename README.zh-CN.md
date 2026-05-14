@@ -43,6 +43,45 @@ DRY_RUN_OK
 - proposal result 没有直接写 confirmed truth
 - `ps_agent_work_log.next_spawn_allowed=false`，直到 review 完成
 
+## 本地 Docker Server
+
+仓库现在包含一个最小 Docker server，用来在本机通过 HTTP 验证当前 dry-run workflow。它不会导入真实个人数据，也不会运行自治 agent。
+
+在仓库根目录启动：
+
+```powershell
+docker compose up --build
+```
+
+然后检查：
+
+```powershell
+curl.exe http://localhost:8080/health
+curl.exe http://localhost:8080/dry-run
+```
+
+`/dry-run` 的预期响应包含：
+
+```json
+{
+  "status": "ok",
+  "message": "DRY_RUN_OK"
+}
+```
+
+停止服务：
+
+```powershell
+docker compose down
+```
+
+不用 Docker Compose 也可以：
+
+```powershell
+docker build -t echo-personal-assistant:local .
+docker run --rm -p 8080:8080 echo-personal-assistant:local
+```
+
 ## 如何使用当前 Runtime
 
 当前 runtime 还不是完整应用，而是一个文件式 dry-run scaffold。它用纯文本和 JSON 模拟第一条个人记忆处理链路。
@@ -190,6 +229,7 @@ git status -sb
 - domain event summary report
 - PS agent work log 示例
 - dry-run validation script
+- 带 `/health` 和 `/dry-run` 的最小 Docker server
 
 未完成：
 
@@ -200,7 +240,7 @@ git status -sb
 - web UI
 - 真实 agent runner
 - Gmail、Google Calendar、Telegram、Hermes 或 cloud storage 同步
-- Docker Compose
+- 带真实 worker / OCR 依赖的生产级 Docker packaging
 
 ## 路线图
 
@@ -283,9 +323,11 @@ Truth 仍然是文件层。
 
 ### Phase 6: Docker Compose
 
-目标：只有当项目真的有值得打包的依赖时，再做 Docker。
+状态：已经有最小本地 server scaffold。
 
-Docker 在这些东西出现后会有价值：
+目标：只有当项目真的有更重的依赖时，再做更完整的 Docker packaging。
+
+Docker 在这些东西出现后会更有价值：
 
 - backend service
 - worker process
