@@ -60,6 +60,12 @@ curl.exe http://localhost:8080/health
 curl.exe http://localhost:8080/dry-run
 ```
 
+Or open the browser dashboard:
+
+```text
+http://localhost:8080/
+```
+
 Expected `/dry-run` response includes:
 
 ```json

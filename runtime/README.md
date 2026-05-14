@@ -43,8 +43,16 @@ docker compose up --build
 Available endpoints:
 
 ```text
+GET /
+GET /api
 GET /health
 GET /dry-run
+```
+
+Open the browser dashboard:
+
+```text
+http://localhost:8080/
 ```
 
 Check the dry run over HTTP:

@@ -60,6 +60,12 @@ curl.exe http://localhost:8080/health
 curl.exe http://localhost:8080/dry-run
 ```
 
+也可以直接打开浏览器 dashboard：
+
+```text
+http://localhost:8080/
+```
+
 `/dry-run` 的预期响应包含：
 
 ```json

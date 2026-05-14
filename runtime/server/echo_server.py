@@ -19,6 +19,289 @@ def _json_bytes(payload: dict) -> bytes:
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
 
+def _home_html() -> bytes:
+    return b"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Echo Runtime</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --surface: #ffffff;
+      --surface-2: #eef2ec;
+      --text: #20231f;
+      --muted: #626960;
+      --border: #d9dfd5;
+      --accent: #1f7a5c;
+      --accent-2: #8a5d13;
+      --danger: #9b2c2c;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.12;
+      letter-spacing: 0;
+      font-weight: 720;
+    }
+
+    .lead {
+      max-width: 680px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .status-pill {
+      min-width: 136px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .status-pill strong {
+      display: block;
+      color: var(--accent);
+      font-size: 15px;
+      margin-bottom: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 17px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+
+    button, a.button {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 12px;
+      font: 650 14px/1 var(--sans);
+      text-decoration: none;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    button:hover, a.button:hover {
+      border-color: #aab5a5;
+    }
+
+    pre {
+      min-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #101510;
+      color: #e8f1e8;
+      padding: 14px;
+      margin: 12px 0 0;
+      font: 13px/1.5 var(--mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 8px 12px;
+      margin: 0;
+      font-size: 14px;
+    }
+
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: var(--mono); }
+
+    .wide { grid-column: 1 / -1; }
+    .ok { color: var(--accent); }
+    .warn { color: var(--accent-2); }
+    .error { color: var(--danger); }
+
+    @media (max-width: 760px) {
+      main { width: min(100% - 24px, 1080px); padding-top: 20px; }
+      header { display: block; }
+      h1 { font-size: 28px; }
+      .status-pill { margin-top: 16px; text-align: left; }
+      .grid { grid-template-columns: 1fr; }
+      dl { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Echo Runtime</h1>
+        <p class="lead">Local Docker dry-run server for the personal memory workflow. Use this screen to check the service and validate the fake evidence packet chain.</p>
+      </div>
+      <div class="status-pill">
+        <strong id="service-status">Checking</strong>
+        localhost:8080
+      </div>
+    </header>
+
+    <div class="grid">
+      <section>
+        <h2>Service</h2>
+        <dl>
+          <dt>Service</dt>
+          <dd>echo-personal-assistant</dd>
+          <dt>Mode</dt>
+          <dd>local-docker-dry-run</dd>
+          <dt>Runtime</dt>
+          <dd id="runtime-root">unknown</dd>
+        </dl>
+        <div class="actions">
+          <button type="button" onclick="loadHealth()">Check Health</button>
+          <a class="button" href="/health">Open JSON</a>
+        </div>
+      </section>
+
+      <section>
+        <h2>Dry Run</h2>
+        <dl>
+          <dt>Packet</dt>
+          <dd id="packet-id">not loaded</dd>
+          <dt>Candidate</dt>
+          <dd id="candidate-id">not loaded</dd>
+          <dt>Next Spawn</dt>
+          <dd id="next-spawn">not loaded</dd>
+        </dl>
+        <div class="actions">
+          <button class="primary" type="button" onclick="runDryRun()">Run Dry Run</button>
+          <a class="button" href="/dry-run">Open JSON</a>
+        </div>
+      </section>
+
+      <section class="wide">
+        <h2>Response</h2>
+        <pre id="output">Loading...</pre>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const output = document.getElementById("output");
+    const statusEl = document.getElementById("service-status");
+
+    function show(data) {
+      output.textContent = JSON.stringify(data, null, 2);
+      if (data.runtime_root) document.getElementById("runtime-root").textContent = data.runtime_root;
+      if (data.packet_id) document.getElementById("packet-id").textContent = data.packet_id;
+      if (data.candidate_id) document.getElementById("candidate-id").textContent = data.candidate_id;
+      if (Object.prototype.hasOwnProperty.call(data, "next_spawn_allowed")) {
+        document.getElementById("next-spawn").textContent = String(data.next_spawn_allowed);
+      }
+    }
+
+    async function requestJson(path) {
+      const response = await fetch(path, { cache: "no-store" });
+      const data = await response.json();
+      show(data);
+      if (!response.ok) throw new Error(data.error || data.message || response.statusText);
+      return data;
+    }
+
+    async function loadHealth() {
+      try {
+        statusEl.textContent = "Checking";
+        statusEl.className = "";
+        const data = await requestJson("/health");
+        statusEl.textContent = data.status === "ok" ? "Healthy" : "Check failed";
+        statusEl.className = data.status === "ok" ? "ok" : "error";
+      } catch (error) {
+        statusEl.textContent = "Offline";
+        statusEl.className = "error";
+        output.textContent = String(error);
+      }
+    }
+
+    async function runDryRun() {
+      try {
+        const data = await requestJson("/dry-run");
+        statusEl.textContent = data.status === "ok" ? "Dry Run OK" : "Check failed";
+        statusEl.className = data.status === "ok" ? "ok" : "error";
+      } catch (error) {
+        statusEl.textContent = "Dry Run Failed";
+        statusEl.className = "error";
+        output.textContent = String(error);
+      }
+    }
+
+    loadHealth();
+  </script>
+</body>
+</html>
+"""
+
+
 class EchoRequestHandler(BaseHTTPRequestHandler):
     server_version = "EchoRuntime/0.1"
 
@@ -26,6 +309,10 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path.rstrip("/") or "/"
 
         if route == "/":
+            self._send_html(HTTPStatus.OK, _home_html())
+            return
+
+        if route == "/api":
             self._send_json(
                 HTTPStatus.OK,
                 {
@@ -69,7 +356,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/health", "/dry-run"],
+                "endpoints": ["/", "/api", "/health", "/dry-run"],
             },
         )
 
@@ -80,6 +367,13 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
         body = _json_bytes(payload)
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_html(self, status: HTTPStatus, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)

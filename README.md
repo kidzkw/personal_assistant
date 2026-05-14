@@ -24,6 +24,12 @@ docker compose up --build
 curl.exe http://localhost:8080/dry-run
 ```
 
+Browser dashboard / 浏览器面板:
+
+```text
+http://localhost:8080/
+```
+
 Expected output / 预期输出:
 
 ```text
