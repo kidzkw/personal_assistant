@@ -48,6 +48,7 @@ GET /api
 GET /health
 GET /dry-run
 GET /inbox
+GET /memory/summary
 POST /inbox/text
 POST /inbox/file
 ```
@@ -57,6 +58,8 @@ Open the browser dashboard:
 ```text
 http://localhost:8080/
 ```
+
+The dashboard shows quick capture, the last 3 days of inbox records, and past-week highlights.
 
 Check the dry run over HTTP:
 

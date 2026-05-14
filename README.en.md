@@ -66,6 +66,8 @@ Or open the browser dashboard:
 http://localhost:8080/
 ```
 
+The homepage is the main local experience: quick capture at the top, a daily view for the last 3 days, and a past-week highlights section. These views are generated from local inbox items, not confirmed memory.
+
 To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can paste text directly, drag a file, choose a file, or paste a screenshot/photo. Title, source, and sensitivity are filled automatically. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
 
 Text API example:
@@ -86,6 +88,12 @@ List received inbox items:
 
 ```powershell
 curl.exe http://localhost:8080/inbox
+```
+
+Get the daily and weekly memory draft view:
+
+```powershell
+curl.exe http://localhost:8080/memory/summary
 ```
 
 The dashboard is preferred for files and photos because it handles browser file reading for you.

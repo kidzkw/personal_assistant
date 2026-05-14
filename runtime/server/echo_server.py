@@ -10,7 +10,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 RUNTIME_ROOT = Path(os.environ.get("ECHO_RUNTIME_ROOT", Path(__file__).resolve().parents[1])).resolve()
@@ -204,6 +204,66 @@ def _list_inbox_items(limit: int = 50) -> dict:
     return {"status": "ok", "items": items[:limit]}
 
 
+def _parse_created_at(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _memory_summary() -> dict:
+    items = _list_inbox_items(limit=500)["items"]
+    today = datetime.now(timezone.utc).date()
+    parsed_items = []
+
+    for item in items:
+        created_at = _parse_created_at(item.get("created_at"))
+        if created_at is None:
+            continue
+        parsed_items.append({**item, "date": created_at.date().isoformat()})
+
+    daily = []
+    for offset in range(3):
+        day = today - timedelta(days=offset)
+        day_key = day.isoformat()
+        if offset == 0:
+            label = "今天"
+        elif offset == 1:
+            label = "昨天"
+        else:
+            label = "前天"
+        day_items = [item for item in parsed_items if item["date"] == day_key]
+        daily.append(
+            {
+                "date": day_key,
+                "label": label,
+                "count": len(day_items),
+                "items": day_items[:8],
+            }
+        )
+
+    week_start = today - timedelta(days=6)
+    week_items = [item for item in parsed_items if datetime.fromisoformat(item["date"]).date() >= week_start]
+    text_count = sum(1 for item in week_items if item.get("input_type") == "text")
+    file_count = sum(1 for item in week_items if item.get("input_type") == "file")
+
+    return {
+        "status": "ok",
+        "mode": "inbox_memory_draft_view",
+        "note": "This view is generated from local inbox items, not confirmed memory.",
+        "daily": daily,
+        "week": {
+            "days": 7,
+            "total_count": len(week_items),
+            "text_count": text_count,
+            "file_count": file_count,
+            "highlights": week_items[:7],
+        },
+    }
+
+
 def _home_html() -> bytes:
     return """<!doctype html>
 <html lang="en">
@@ -339,7 +399,7 @@ def _home_html() -> bytes:
     .dropbox {
       display: grid;
       place-items: center;
-      min-height: 190px;
+      min-height: 210px;
       margin-top: 12px;
       border: 1.5px dashed #aab5a5;
       border-radius: 8px;
@@ -388,6 +448,81 @@ def _home_html() -> bytes:
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .memory-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .day-block, .highlight-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfa;
+      padding: 14px;
+    }
+
+    .day-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .day-title strong {
+      font-size: 16px;
+    }
+
+    .day-title span, .memory-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .memory-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .memory-item {
+      border-left: 3px solid var(--accent);
+      padding: 7px 0 7px 10px;
+      font-size: 14px;
+    }
+
+    .memory-item strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.35;
+      margin-bottom: 3px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 8px 0;
+    }
+
+    .highlight-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 18px;
+      color: var(--text);
     }
 
     .field-row {
@@ -459,6 +594,7 @@ def _home_html() -> bytes:
       h1 { font-size: 28px; }
       .status-pill { margin-top: 16px; text-align: left; }
       .grid { grid-template-columns: 1fr; }
+      .memory-grid { grid-template-columns: 1fr; }
       dl { grid-template-columns: 1fr; }
       .field-row { grid-template-columns: 1fr; }
     }
@@ -468,8 +604,8 @@ def _home_html() -> bytes:
   <main>
     <header>
       <div>
-        <h1>Echo Runtime</h1>
-        <p class="lead">Local Docker dry-run server for the personal memory workflow. Use this screen to check the service and validate the fake evidence packet chain.</p>
+        <h1>Echo 个人记忆助理</h1>
+        <p class="lead">把文字、照片和文件先放进本地 inbox。Echo 会按天整理最近记录；确认前它们只是记忆草稿，不会进入长期真相层。</p>
       </div>
       <div class="status-pill">
         <strong id="service-status">Checking</strong>
@@ -478,8 +614,46 @@ def _home_html() -> bytes:
     </header>
 
     <div class="grid">
+      <section class="wide">
+        <h2>快速记录</h2>
+        <div id="dropbox" class="dropbox" tabindex="0">
+          <div>
+            <strong>直接粘贴文字，或拖入照片 / 文件</strong>
+            <p>不需要标题，也不用先分类。Echo 会自动补 metadata，并把它放到本地 inbox 等待 review。</p>
+            <div class="actions" style="justify-content: center;">
+              <button class="primary" type="button" onclick="document.getElementById('file-input').click()">选择文件</button>
+              <button type="button" onclick="sendTypedText()">保存文字</button>
+            </div>
+          </div>
+        </div>
+        <input id="file-input" type="file" multiple style="display: none;">
+        <div id="file-list" class="file-list"></div>
+        <div style="margin-top: 12px;">
+          <label for="inbox-text">文字</label>
+          <textarea id="inbox-text" placeholder="直接粘贴或输入一段文字，然后点“保存文字”。"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" onclick="loadMemorySummary()">刷新记忆视图</button>
+          <a class="button" href="/inbox">打开 Inbox JSON</a>
+        </div>
+      </section>
+
+      <section class="wide">
+        <h2>最近 3 天</h2>
+        <div id="daily-memory" class="memory-grid">
+          <div class="empty">Loading...</div>
+        </div>
+      </section>
+
+      <section class="wide">
+        <h2>过去一周亮点</h2>
+        <div id="weekly-highlights" class="highlight-block">
+          <div class="empty">Loading...</div>
+        </div>
+      </section>
+
       <section>
-        <h2>Service</h2>
+        <h2>服务状态</h2>
         <dl>
           <dt>Service</dt>
           <dd>echo-personal-assistant</dd>
@@ -489,13 +663,13 @@ def _home_html() -> bytes:
           <dd id="runtime-root">unknown</dd>
         </dl>
         <div class="actions">
-          <button type="button" onclick="loadHealth()">Check Health</button>
-          <a class="button" href="/health">Open JSON</a>
+          <button type="button" onclick="loadHealth()">检查服务</button>
+          <a class="button" href="/health">Health JSON</a>
         </div>
       </section>
 
       <section>
-        <h2>Dry Run</h2>
+        <h2>链路验证</h2>
         <dl>
           <dt>Packet</dt>
           <dd id="packet-id">not loaded</dd>
@@ -505,37 +679,13 @@ def _home_html() -> bytes:
           <dd id="next-spawn">not loaded</dd>
         </dl>
         <div class="actions">
-          <button class="primary" type="button" onclick="runDryRun()">Run Dry Run</button>
-          <a class="button" href="/dry-run">Open JSON</a>
+          <button type="button" onclick="runDryRun()">Run Dry Run</button>
+          <a class="button" href="/dry-run">Dry Run JSON</a>
         </div>
       </section>
 
       <section class="wide">
-        <h2>Inbox Dropbox</h2>
-        <div id="dropbox" class="dropbox" tabindex="0">
-          <div>
-            <strong>Paste text, drop files, or choose a file</strong>
-            <p>Echo records it directly into local inbox review. No title required; metadata is automatic.</p>
-            <div class="actions" style="justify-content: center;">
-              <button class="primary" type="button" onclick="document.getElementById('file-input').click()">Choose File</button>
-              <button type="button" onclick="sendTypedText()">Save Text</button>
-            </div>
-          </div>
-        </div>
-        <input id="file-input" type="file" multiple style="display: none;">
-        <div id="file-list" class="file-list"></div>
-        <div style="margin-top: 12px;">
-          <label for="inbox-text">Text</label>
-          <textarea id="inbox-text" placeholder="Paste or type a note here, then click Save Text."></textarea>
-        </div>
-        <div class="actions">
-          <button type="button" onclick="loadInbox()">Refresh Inbox</button>
-          <a class="button" href="/inbox">Open Inbox JSON</a>
-        </div>
-      </section>
-
-      <section class="wide">
-        <h2>Response</h2>
+        <h2>最近响应</h2>
         <pre id="output">Loading...</pre>
       </section>
     </div>
@@ -547,6 +697,8 @@ def _home_html() -> bytes:
     const dropbox = document.getElementById("dropbox");
     const fileInput = document.getElementById("file-input");
     const fileList = document.getElementById("file-list");
+    const dailyMemory = document.getElementById("daily-memory");
+    const weeklyHighlights = document.getElementById("weekly-highlights");
 
     function show(data) {
       output.textContent = JSON.stringify(data, null, 2);
@@ -559,11 +711,83 @@ def _home_html() -> bytes:
     }
 
     async function requestJson(path) {
+      const data = await fetchJson(path);
+      show(data);
+      return data;
+    }
+
+    async function fetchJson(path) {
       const response = await fetch(path, { cache: "no-store" });
       const data = await response.json();
-      show(data);
       if (!response.ok) throw new Error(data.error || data.message || response.statusText);
       return data;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function itemTitle(item) {
+      return item.title || item.preview || item.file_ref || "Untitled";
+    }
+
+    function itemMeta(item) {
+      const kind = item.input_type === "file" ? "文件" : "文字";
+      const state = item.review_state || "inbox";
+      return `${kind} · ${state}`;
+    }
+
+    function renderMemoryItem(item) {
+      return `
+        <div class="memory-item">
+          <strong>${escapeHtml(itemTitle(item))}</strong>
+          <div class="memory-meta">${escapeHtml(itemMeta(item))}</div>
+        </div>
+      `;
+    }
+
+    function renderMemorySummary(data) {
+      dailyMemory.innerHTML = data.daily.map((day) => {
+        const items = day.items.length
+          ? `<div class="memory-list">${day.items.map(renderMemoryItem).join("")}</div>`
+          : `<div class="empty">这一天还没有记录。</div>`;
+        return `
+          <div class="day-block">
+            <div class="day-title">
+              <strong>${escapeHtml(day.label)}</strong>
+              <span>${escapeHtml(day.date)} · ${day.count} 条</span>
+            </div>
+            ${items}
+          </div>
+        `;
+      }).join("");
+
+      const week = data.week;
+      const highlights = week.highlights.length
+        ? `<div class="memory-list">${week.highlights.map(renderMemoryItem).join("")}</div>`
+        : `<div class="empty">过去一周还没有可展示的 inbox 记录。</div>`;
+      weeklyHighlights.innerHTML = `
+        <div class="highlight-stats">
+          <div class="stat"><strong>${week.total_count}</strong>总记录</div>
+          <div class="stat"><strong>${week.text_count}</strong>文字</div>
+          <div class="stat"><strong>${week.file_count}</strong>文件/照片</div>
+        </div>
+        ${highlights}
+      `;
+    }
+
+    async function loadMemorySummary() {
+      try {
+        const data = await fetchJson("/memory/summary");
+        renderMemorySummary(data);
+      } catch (error) {
+        dailyMemory.innerHTML = `<div class="empty">记忆视图加载失败。</div>`;
+        weeklyHighlights.innerHTML = `<div class="empty">${escapeHtml(error)}</div>`;
+      }
     }
 
     async function loadHealth() {
@@ -616,6 +840,7 @@ def _home_html() -> bytes:
         document.getElementById("inbox-text").value = "";
         statusEl.textContent = "Inbox Saved";
         statusEl.className = "ok";
+        loadMemorySummary();
       } catch (error) {
         statusEl.textContent = "Inbox Failed";
         statusEl.className = "error";
@@ -677,6 +902,7 @@ def _home_html() -> bytes:
           addFileRow(file, "saved");
           statusEl.textContent = "Inbox Saved";
           statusEl.className = "ok";
+          loadMemorySummary();
         } catch (error) {
           addFileRow(file, "failed");
           statusEl.textContent = "Inbox Failed";
@@ -738,6 +964,7 @@ def _home_html() -> bytes:
     });
 
     loadHealth();
+    loadMemorySummary();
   </script>
 </body>
 </html>
@@ -783,7 +1010,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
             },
         )
 
@@ -800,7 +1027,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
                 {
                     "service": "echo-personal-assistant",
                     "mode": "local-docker-dry-run",
-                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
+                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
                 },
             )
             return
@@ -837,12 +1064,16 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, _list_inbox_items())
             return
 
+        if route == "/memory/summary":
+            self._send_json(HTTPStatus.OK, _memory_summary())
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "POST /inbox/text", "POST /inbox/file"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
             },
         )
 

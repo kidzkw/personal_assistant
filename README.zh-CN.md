@@ -66,6 +66,8 @@ curl.exe http://localhost:8080/dry-run
 http://localhost:8080/
 ```
 
+主页现在是主要本地使用界面：上面是快速记录，下面按天显示最近 3 天的本地 inbox 记录，并显示过去一周亮点。这些视图来自 local inbox，还不是 confirmed memory。
+
 要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以直接粘贴一段文字、拖文件、选择文件、粘贴截图/照片。title、source、sensitivity 会自动补。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是 confirmed memory。
 
 文本 API 示例：
@@ -86,6 +88,12 @@ Invoke-RestMethod `
 
 ```powershell
 curl.exe http://localhost:8080/inbox
+```
+
+获取按天和按周的记忆草稿视图：
+
+```powershell
+curl.exe http://localhost:8080/memory/summary
 ```
 
 文件和照片建议直接用浏览器 dashboard，因为它会帮你处理本地文件读取。
