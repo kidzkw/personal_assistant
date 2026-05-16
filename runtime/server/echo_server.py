@@ -525,6 +525,28 @@ def _home_html() -> bytes:
       color: var(--text);
     }
 
+    .todo-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .todo-list li {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfa;
+      padding: 12px;
+      font-size: 14px;
+    }
+
+    .todo-list strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
     .field-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -595,6 +617,7 @@ def _home_html() -> bytes:
       .status-pill { margin-top: 16px; text-align: left; }
       .grid { grid-template-columns: 1fr; }
       .memory-grid { grid-template-columns: 1fr; }
+      .todo-list { grid-template-columns: 1fr; }
       dl { grid-template-columns: 1fr; }
       .field-row { grid-template-columns: 1fr; }
     }
@@ -650,6 +673,21 @@ def _home_html() -> bytes:
         <div id="weekly-highlights" class="highlight-block">
           <div class="empty">Loading...</div>
         </div>
+      </section>
+
+      <section class="wide">
+        <h2>未来 TODO</h2>
+        <ol class="todo-list">
+          <li><strong>整理这条</strong>把 inbox item 转成 evidence packet。</li>
+          <li><strong>Review Queue</strong>人工确认、修正、拒绝或归档。</li>
+          <li><strong>正式 Schema</strong>固定 evidence / candidate / agent result 合约。</li>
+          <li><strong>图片预览</strong>让照片和截图在时间线上可见。</li>
+          <li><strong>OCR</strong>从截图、PDF、票据中提取文字。</li>
+          <li><strong>搜索</strong>按文字、日期、文件类型和状态查找。</li>
+          <li><strong>Confirmed Memory</strong>把 review 后的信息写入长期记忆。</li>
+          <li><strong>一周摘要</strong>生成更自然的 weekly highlight。</li>
+          <li><strong>隐私分级</strong>医疗、财务、关系、账号安全默认更严格。</li>
+        </ol>
       </section>
 
       <section>

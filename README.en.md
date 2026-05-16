@@ -96,6 +96,18 @@ Get the daily and weekly memory draft view:
 curl.exe http://localhost:8080/memory/summary
 ```
 
+## Future TODOs
+
+1. `Prepare Item`: convert an inbox item into an evidence packet.
+2. `Review Queue`: approve, correct, reject, or archive items.
+3. `Formal JSON Schema`: lock evidence / candidate / agent result contracts.
+4. `Image Preview`: show photos and screenshots in the timeline.
+5. `OCR`: extract text from screenshots, PDFs, and receipts.
+6. `Search`: find items by text, date, file type, and state.
+7. `Confirmed Memory`: write reviewed information into long-term memory.
+8. `Weekly Summary`: generate a more natural weekly highlight.
+9. `Privacy Tiers`: make medical, finance, relationship, and account-security data stricter by default.
+
 The dashboard is preferred for files and photos because it handles browser file reading for you.
 
 Expected `/dry-run` response includes:

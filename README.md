@@ -34,6 +34,12 @@ The homepage shows quick capture, the last 3 days of local inbox records, and pa
 
 主页会显示快速记录、最近 3 天的本地 inbox 记录，以及过去一周亮点。
 
+Next TODOs / 下一步 TODO:
+
+```text
+prepare item -> review queue -> formal schema -> previews -> OCR -> search -> confirmed memory -> weekly summary -> privacy tiers
+```
+
 Send a local-only item / 发送本地内容到 inbox:
 
 Open the dashboard and use the Dropbox area. You can paste text directly, drag files/photos in, or choose a file. Title/source/sensitivity are filled automatically.

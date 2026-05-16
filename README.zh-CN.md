@@ -96,6 +96,18 @@ curl.exe http://localhost:8080/inbox
 curl.exe http://localhost:8080/memory/summary
 ```
 
+## 未来 TODO
+
+1. `整理这条`：把 inbox item 转成 evidence packet。
+2. `Review Queue`：人工确认、修正、拒绝或归档。
+3. `正式 JSON Schema`：固定 evidence / candidate / agent result 合约。
+4. `图片预览`：让照片和截图在时间线上可见。
+5. `OCR`：从截图、PDF、票据中提取文字。
+6. `搜索`：按文字、日期、文件类型和状态查找。
+7. `Confirmed Memory`：把 review 后的信息写入长期记忆。
+8. `一周摘要`：生成更自然的 weekly highlight。
+9. `隐私分级`：医疗、财务、关系、账号安全默认更严格。
+
 文件和照片建议直接用浏览器 dashboard，因为它会帮你处理本地文件读取。
 
 `/dry-run` 的预期响应包含：
