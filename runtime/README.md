@@ -51,6 +51,7 @@ GET /inbox
 GET /memory/summary
 POST /inbox/text
 POST /inbox/file
+POST /inbox/review
 ```
 
 Open the browser dashboard:
@@ -61,6 +62,7 @@ http://localhost:8080/
 
 The dashboard shows quick capture, recent 7-day todo candidates, and past-week highlights.
 It also lists the next 9 TODOs for moving from inbox capture toward reviewed long-term memory.
+Todo candidates can be confirmed from the dashboard with `确认为 To Do`; this updates the local inbox JSON review state only.
 
 Check the dry run over HTTP:
 

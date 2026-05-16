@@ -234,6 +234,10 @@ def _list_inbox_items(limit: int = 50) -> dict:
                         "mentioned_dates": item.get("mentioned_dates", []),
                         "classification_state": item.get("classification_state", "needs_classification"),
                         "candidate_types": item.get("candidate_types", []),
+                        "user_selected_type": item.get("user_selected_type"),
+                        "user_review": item.get("user_review"),
+                        "reviewed_at": item.get("reviewed_at"),
+                        "todo_status": item.get("todo_status"),
                         "display_date": item.get("display_date"),
                         "display_date_source": item.get("display_date_source"),
                         "captured_local_date": item.get("captured_local_date"),
@@ -262,6 +266,10 @@ def _list_inbox_items(limit: int = 50) -> dict:
                         "mentioned_dates": item.get("mentioned_dates", []),
                         "classification_state": item.get("classification_state", "needs_classification"),
                         "candidate_types": item.get("candidate_types", []),
+                        "user_selected_type": item.get("user_selected_type"),
+                        "user_review": item.get("user_review"),
+                        "reviewed_at": item.get("reviewed_at"),
+                        "todo_status": item.get("todo_status"),
                         "display_date": item.get("display_date"),
                         "display_date_source": item.get("display_date_source"),
                         "captured_local_date": item.get("captured_local_date"),
@@ -277,6 +285,73 @@ def _list_inbox_items(limit: int = 50) -> dict:
 
     items.sort(key=lambda item: str(item.get("created_at", "")), reverse=True)
     return {"status": "ok", "items": items[:limit]}
+
+
+def _inbox_item_path(inbox_id: str) -> Path:
+    if not re.fullmatch(r"inbox_(?:text|file)_\d{8}T\d{6}Z_[0-9a-f]{8}", inbox_id):
+        raise ValueError("inbox_id is not valid")
+
+    candidates = [
+        INBOX_TEXT_ROOT / f"{inbox_id}.json",
+        INBOX_FILE_ROOT / inbox_id / "meta.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise ValueError("inbox item was not found")
+
+
+def _update_inbox_review(payload: dict) -> dict:
+    inbox_id = str(payload.get("inbox_id", "")).strip()
+    decision = str(payload.get("decision", "")).strip()
+    if decision not in {"todo", "memory", "no_action"}:
+        raise ValueError("decision must be todo, memory, or no_action")
+
+    path = _inbox_item_path(inbox_id)
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    item = data.get("inbox_item")
+    if not isinstance(item, dict):
+        raise ValueError("inbox item file is missing inbox_item")
+
+    reviewed_at = _now_iso()
+    item["reviewed_at"] = reviewed_at
+    item["user_review"] = {
+        "reviewed_at": reviewed_at,
+        "reviewer": "local_user",
+        "decision": decision,
+    }
+
+    if decision == "todo":
+        item["review_state"] = "user_confirmed"
+        item["classification_state"] = "user_confirmed_todo"
+        item["user_selected_type"] = "todo"
+        item["candidate_types"] = ["todo"]
+        item["todo_status"] = item.get("todo_status") or "open"
+    elif decision == "memory":
+        item["review_state"] = "user_confirmed"
+        item["classification_state"] = "user_confirmed_memory"
+        item["user_selected_type"] = "memory"
+        item["candidate_types"] = ["memory"]
+        item.pop("todo_status", None)
+    else:
+        item["review_state"] = "user_no_action"
+        item["classification_state"] = "user_no_action"
+        item["user_selected_type"] = "no_action"
+        item["candidate_types"] = []
+        item.pop("todo_status", None)
+
+    data["inbox_item"] = item
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        "status": "ok",
+        "message": "INBOX_REVIEW_UPDATED",
+        "inbox_id": inbox_id,
+        "decision": decision,
+        "review_state": item.get("review_state"),
+        "classification_state": item.get("classification_state"),
+        "user_selected_type": item.get("user_selected_type"),
+        "path": str(path.relative_to(RUNTIME_ROOT)),
+    }
 
 
 def _parse_created_at(value: str | None) -> datetime | None:
@@ -333,7 +408,10 @@ def _memory_summary() -> dict:
         week_items.append(item)
         mentioned_date = _first_mentioned_date(item)
         candidate_types = set(item.get("candidate_types") or [])
-        if "todo" not in candidate_types and mentioned_date is None:
+        user_selected_type = item.get("user_selected_type")
+        if user_selected_type in {"memory", "no_action"}:
+            continue
+        if user_selected_type != "todo" and "todo" not in candidate_types and mentioned_date is None:
             continue
 
         todo_items.append(
@@ -341,7 +419,8 @@ def _memory_summary() -> dict:
                 **item,
                 "todo_date": mentioned_date.isoformat() if mentioned_date else None,
                 "todo_date_source": "mentioned_date" if mentioned_date else "needs_review",
-                "review_hint": "candidate_only_not_confirmed_todo",
+                "todo_state": "confirmed" if user_selected_type == "todo" else "candidate",
+                "review_hint": "user_confirmed_todo" if user_selected_type == "todo" else "candidate_only_not_confirmed_todo",
             }
         )
 
@@ -653,6 +732,29 @@ def _home_html() -> bytes:
       margin-bottom: 4px;
     }
 
+    .section-note {
+      margin: -4px 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .review-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .review-actions button {
+      min-height: 32px;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    button.subtle {
+      background: #ffffff;
+    }
+
     .field-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -769,6 +871,7 @@ def _home_html() -> bytes:
 
       <section class="wide">
         <h2>最近 7 天 To Do 候选</h2>
+        <p class="section-note">点“确认为 To Do”后，Echo 会先在本地 inbox 标记你的选择；后续再进入正式 review / write 流程。</p>
         <div id="todo-window" class="memory-grid">
           <div class="empty">Loading...</div>
         </div>
@@ -879,12 +982,20 @@ def _home_html() -> bytes:
       return item.title || item.preview || item.file_ref || "Untitled";
     }
 
+    function selectedTypeLabel(value) {
+      if (value === "todo") return "已确认为 To Do";
+      if (value === "memory") return "已确认为记忆";
+      if (value === "no_action") return "已暂不处理";
+      return "";
+    }
+
     function itemMeta(item) {
       const kind = item.input_type === "file" ? "文件" : "文字";
       const state = item.review_state || "inbox";
+      const selected = selectedTypeLabel(item.user_selected_type);
       const mentioned = (item.mentioned_dates || []).map((entry) => entry.date).join(", ");
       const dateHint = mentioned ? `提到日期 ${mentioned}` : "";
-      return [kind, state, dateHint].filter(Boolean).join(" · ");
+      return [kind, state, selected, dateHint].filter(Boolean).join(" · ");
     }
 
     function renderMemoryItem(item) {
@@ -899,7 +1010,17 @@ def _home_html() -> bytes:
     function renderTodoCandidate(item) {
       const todoDate = item.todo_date ? `提到日期 ${item.todo_date}` : "日期待确认";
       const capturedDate = item.display_date || item.captured_local_date || item.date || "";
-      const reviewState = item.classification_state === "needs_classification" ? "待确认 todo / 记忆" : item.classification_state;
+      const isConfirmedTodo = item.user_selected_type === "todo";
+      const reviewState = isConfirmedTodo
+        ? "已确认为 To Do"
+        : item.classification_state === "needs_classification" ? "待确认 todo / 记忆" : item.classification_state;
+      const actions = isConfirmedTodo ? "" : `
+        <div class="review-actions" data-inbox-id="${escapeHtml(item.inbox_id || "")}">
+          <button class="primary" type="button" data-review-decision="todo">确认为 To Do</button>
+          <button class="subtle" type="button" data-review-decision="memory">确认为记忆</button>
+          <button class="subtle" type="button" data-review-decision="no_action">暂不处理</button>
+        </div>
+      `;
       return `
         <div class="day-block">
           <div class="day-title">
@@ -907,7 +1028,8 @@ def _home_html() -> bytes:
             <span>${escapeHtml(reviewState || "待确认")}</span>
           </div>
           ${renderMemoryItem(item)}
-          <div class="memory-meta">收进日期 ${escapeHtml(capturedDate)} · 待确认后加入正式 To Do</div>
+          <div class="memory-meta">收进日期 ${escapeHtml(capturedDate)} · ${isConfirmedTodo ? "已在本地确认" : "等待你确认"}</div>
+          ${actions}
         </div>
       `;
     }
@@ -939,6 +1061,32 @@ def _home_html() -> bytes:
       } catch (error) {
         todoWindow.innerHTML = `<div class="empty">To Do 候选加载失败。</div>`;
         weeklyHighlights.innerHTML = `<div class="empty">${escapeHtml(error)}</div>`;
+      }
+    }
+
+    async function reviewInboxItem(inboxId, decision) {
+      if (!inboxId) return;
+      const labels = {
+        todo: "已确认为 To Do",
+        memory: "已确认为记忆",
+        no_action: "已暂不处理"
+      };
+      try {
+        const response = await fetch("/inbox/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inbox_id: inboxId, decision })
+        });
+        const data = await response.json();
+        show(data);
+        if (!response.ok) throw new Error(data.error || data.message || response.statusText);
+        statusEl.textContent = labels[decision] || "Review Saved";
+        statusEl.className = "ok";
+        loadMemorySummary();
+      } catch (error) {
+        statusEl.textContent = "Review Failed";
+        statusEl.className = "error";
+        output.textContent = String(error);
       }
     }
 
@@ -1101,6 +1249,14 @@ def _home_html() -> bytes:
       fileInput.value = "";
     });
 
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-review-decision]");
+      if (!button) return;
+      const container = button.closest("[data-inbox-id]");
+      if (!container) return;
+      reviewInboxItem(container.dataset.inboxId, button.dataset.reviewDecision);
+    });
+
     window.addEventListener("paste", (event) => {
       const files = Array.from(event.clipboardData.files || []);
       if (files.length) {
@@ -1157,12 +1313,26 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.CREATED, result)
             return
 
+        if route == "/inbox/review":
+            try:
+                payload = self._read_json_body(max_bytes=5000)
+                result = _update_inbox_review(payload)
+            except ValueError as exc:
+                self._send_json(HTTPStatus.BAD_REQUEST, {"status": "error", "message": "INVALID_INBOX_REVIEW", "error": str(exc)})
+                return
+            except (OSError, json.JSONDecodeError) as exc:
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "INBOX_REVIEW_FAILED", "error": str(exc)})
+                return
+
+            self._send_json(HTTPStatus.OK, result)
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file", "POST /inbox/review"],
             },
         )
 
@@ -1179,7 +1349,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
                 {
                     "service": "echo-personal-assistant",
                     "mode": "local-docker-dry-run",
-                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
+                    "endpoints": ["/", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file", "POST /inbox/review"],
                 },
             )
             return
@@ -1225,7 +1395,7 @@ class EchoRequestHandler(BaseHTTPRequestHandler):
             {
                 "status": "error",
                 "message": "Not found",
-                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file"],
+                "endpoints": ["/", "/api", "/health", "/dry-run", "/inbox", "/memory/summary", "POST /inbox/text", "POST /inbox/file", "POST /inbox/review"],
             },
         )
 

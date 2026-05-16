@@ -34,6 +34,10 @@ The homepage shows quick capture, recent 7-day todo candidates from local inbox 
 
 主页会显示快速记录、最近 7 天 To Do 候选，以及过去一周亮点。文本里提到的日期只会先标记，不会自动定性成正式 To Do 或记忆。
 
+To confirm a todo candidate, click `确认为 To Do` on the homepage. The current version records that choice in the local inbox JSON only; it does not write to the long-term truth layer yet.
+
+要确认 To Do 候选，在主页对应条目下点击 `确认为 To Do`。当前版本只会把你的选择写回本地 inbox JSON，还不会写入长期 truth layer。
+
 Next TODOs / 下一步 TODO:
 
 ```text

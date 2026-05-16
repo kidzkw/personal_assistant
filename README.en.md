@@ -68,6 +68,8 @@ http://localhost:8080/
 
 The homepage is the main local experience: quick capture at the top, recent 7-day todo candidates, and a past-week highlights section. These views are generated from local inbox items, not confirmed memory. Dates mentioned in text are stored as `mentioned_dates` only; you decide later whether the item is a todo or a memory.
 
+To confirm a todo candidate, click `确认为 To Do` on the homepage. The current version records that choice in the local inbox JSON only; it does not write to the long-term truth layer yet.
+
 To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can paste text directly, drag a file, choose a file, or paste a screenshot/photo. Title, source, and sensitivity are filled automatically. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
 
 Text API example:
@@ -281,6 +283,8 @@ Done:
 - minimal Docker server with `/health` and `/dry-run`
 - local text inbox endpoint with `POST /inbox/text`
 - local file/photo inbox endpoint with `POST /inbox/file`
+- local review endpoint with `POST /inbox/review`
+- minimal browser dashboard
 
 Not done:
 
@@ -288,7 +292,7 @@ Not done:
 - CLI for creating packets
 - SQLite index
 - OCR
-- web UI
+- full review queue UI
 - real agent runner
 - sync with Gmail, Google Calendar, Telegram, Hermes, or cloud storage
 - production Docker packaging with real workers or OCR dependencies
