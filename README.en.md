@@ -66,7 +66,7 @@ Or open the browser dashboard:
 http://localhost:8080/
 ```
 
-The homepage is the main local experience: quick capture at the top, a daily view for the last 3 captured days, and a past-week highlights section. These views are generated from local inbox items, not confirmed memory. Dates mentioned in text are stored as `mentioned_dates` only; you decide later whether the item is a todo or a memory.
+The homepage is the main local experience: quick capture at the top, recent 7-day todo candidates, and a past-week highlights section. These views are generated from local inbox items, not confirmed memory. Dates mentioned in text are stored as `mentioned_dates` only; you decide later whether the item is a todo or a memory.
 
 To send a small local-only item into Echo, use the dashboard's "Inbox Dropbox" area. You can paste text directly, drag a file, choose a file, or paste a screenshot/photo. Title, source, and sensitivity are filled automatically. Text items are saved under `runtime/inbox/text/`; file/photo items are saved under `runtime/inbox/files/`. They remain `review_state=inbox`; they are not confirmed memory.
 
@@ -90,7 +90,7 @@ List received inbox items:
 curl.exe http://localhost:8080/inbox
 ```
 
-Get the daily and weekly memory draft view:
+Get the todo candidate and weekly memory draft view:
 
 ```powershell
 curl.exe http://localhost:8080/memory/summary

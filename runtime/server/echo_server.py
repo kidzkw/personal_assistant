@@ -288,6 +288,25 @@ def _parse_created_at(value: str | None) -> datetime | None:
         return None
 
 
+def _parse_date_value(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _first_mentioned_date(item: dict) -> date | None:
+    for entry in item.get("mentioned_dates") or []:
+        if not isinstance(entry, dict):
+            continue
+        parsed = _parse_date_value(entry.get("date"))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _memory_summary() -> dict:
     items = _list_inbox_items(limit=500)["items"]
     today = _now_local().date()
@@ -302,28 +321,31 @@ def _memory_summary() -> dict:
             display_date = created_at.astimezone(LOCAL_TZ).date().isoformat()
         parsed_items.append({**item, "date": display_date})
 
-    daily = []
-    for offset in range(3):
-        day = today - timedelta(days=offset)
-        day_key = day.isoformat()
-        if offset == 0:
-            label = "今天"
-        elif offset == 1:
-            label = "昨天"
-        else:
-            label = "前天"
-        day_items = [item for item in parsed_items if item["date"] == day_key]
-        daily.append(
+    week_start = today - timedelta(days=6)
+    week_items = []
+    todo_items = []
+
+    for item in parsed_items:
+        item_day = _parse_date_value(item.get("date"))
+        if item_day is None or item_day < week_start or item_day > today:
+            continue
+
+        week_items.append(item)
+        mentioned_date = _first_mentioned_date(item)
+        candidate_types = set(item.get("candidate_types") or [])
+        if "todo" not in candidate_types and mentioned_date is None:
+            continue
+
+        todo_items.append(
             {
-                "date": day_key,
-                "label": label,
-                "count": len(day_items),
-                "items": day_items[:8],
+                **item,
+                "todo_date": mentioned_date.isoformat() if mentioned_date else None,
+                "todo_date_source": "mentioned_date" if mentioned_date else "needs_review",
+                "review_hint": "candidate_only_not_confirmed_todo",
             }
         )
 
-    week_start = today - timedelta(days=6)
-    week_items = [item for item in parsed_items if datetime.fromisoformat(item["date"]).date() >= week_start]
+    todo_items.sort(key=lambda item: (item.get("todo_date") or item.get("date") or "", item.get("created_at") or ""))
     text_count = sum(1 for item in week_items if item.get("input_type") == "text")
     file_count = sum(1 for item in week_items if item.get("input_type") == "file")
 
@@ -331,7 +353,13 @@ def _memory_summary() -> dict:
         "status": "ok",
         "mode": "inbox_memory_draft_view",
         "note": "This view is generated from local inbox items, not confirmed memory.",
-        "daily": daily,
+        "todo_window": {
+            "days": 7,
+            "start_date": week_start.isoformat(),
+            "end_date": today.isoformat(),
+            "count": len(todo_items),
+            "items": todo_items[:20],
+        },
         "week": {
             "days": 7,
             "total_count": len(week_items),
@@ -740,8 +768,8 @@ def _home_html() -> bytes:
       </section>
 
       <section class="wide">
-        <h2>最近 3 天</h2>
-        <div id="daily-memory" class="memory-grid">
+        <h2>最近 7 天 To Do 候选</h2>
+        <div id="todo-window" class="memory-grid">
           <div class="empty">Loading...</div>
         </div>
       </section>
@@ -813,7 +841,7 @@ def _home_html() -> bytes:
     const dropbox = document.getElementById("dropbox");
     const fileInput = document.getElementById("file-input");
     const fileList = document.getElementById("file-list");
-    const dailyMemory = document.getElementById("daily-memory");
+    const todoWindow = document.getElementById("todo-window");
     const weeklyHighlights = document.getElementById("weekly-highlights");
 
     function show(data) {
@@ -868,21 +896,27 @@ def _home_html() -> bytes:
       `;
     }
 
-    function renderMemorySummary(data) {
-      dailyMemory.innerHTML = data.daily.map((day) => {
-        const items = day.items.length
-          ? `<div class="memory-list">${day.items.map(renderMemoryItem).join("")}</div>`
-          : `<div class="empty">这一天还没有记录。</div>`;
-        return `
-          <div class="day-block">
-            <div class="day-title">
-              <strong>${escapeHtml(day.label)}</strong>
-              <span>${escapeHtml(day.date)} · ${day.count} 条</span>
-            </div>
-            ${items}
+    function renderTodoCandidate(item) {
+      const todoDate = item.todo_date ? `提到日期 ${item.todo_date}` : "日期待确认";
+      const capturedDate = item.display_date || item.captured_local_date || item.date || "";
+      const reviewState = item.classification_state === "needs_classification" ? "待确认 todo / 记忆" : item.classification_state;
+      return `
+        <div class="day-block">
+          <div class="day-title">
+            <strong>${escapeHtml(todoDate)}</strong>
+            <span>${escapeHtml(reviewState || "待确认")}</span>
           </div>
-        `;
-      }).join("");
+          ${renderMemoryItem(item)}
+          <div class="memory-meta">收进日期 ${escapeHtml(capturedDate)} · 还不是 confirmed todo</div>
+        </div>
+      `;
+    }
+
+    function renderMemorySummary(data) {
+      const todo = data.todo_window || { items: [], count: 0, start_date: "", end_date: "" };
+      todoWindow.innerHTML = todo.items.length
+        ? todo.items.map(renderTodoCandidate).join("")
+        : `<div class="empty">最近 7 天还没有 To Do 候选。</div>`;
 
       const week = data.week;
       const highlights = week.highlights.length
@@ -903,7 +937,7 @@ def _home_html() -> bytes:
         const data = await fetchJson("/memory/summary");
         renderMemorySummary(data);
       } catch (error) {
-        dailyMemory.innerHTML = `<div class="empty">记忆视图加载失败。</div>`;
+        todoWindow.innerHTML = `<div class="empty">To Do 候选加载失败。</div>`;
         weeklyHighlights.innerHTML = `<div class="empty">${escapeHtml(error)}</div>`;
       }
     }

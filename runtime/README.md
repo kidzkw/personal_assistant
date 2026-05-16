@@ -59,7 +59,7 @@ Open the browser dashboard:
 http://localhost:8080/
 ```
 
-The dashboard shows quick capture, the last 3 days of inbox records, and past-week highlights.
+The dashboard shows quick capture, recent 7-day todo candidates, and past-week highlights.
 It also lists the next 9 TODOs for moving from inbox capture toward reviewed long-term memory.
 
 Check the dry run over HTTP:
