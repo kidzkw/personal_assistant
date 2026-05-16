@@ -907,7 +907,7 @@ def _home_html() -> bytes:
             <span>${escapeHtml(reviewState || "待确认")}</span>
           </div>
           ${renderMemoryItem(item)}
-          <div class="memory-meta">收进日期 ${escapeHtml(capturedDate)} · 还不是 confirmed todo</div>
+          <div class="memory-meta">收进日期 ${escapeHtml(capturedDate)} · 待确认后加入正式 To Do</div>
         </div>
       `;
     }

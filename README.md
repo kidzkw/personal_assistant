@@ -30,9 +30,9 @@ Browser dashboard / 浏览器面板:
 http://localhost:8080/
 ```
 
-The homepage shows quick capture, recent 7-day todo candidates from local inbox records, and past-week highlights. Mentioned dates are marked but not auto-classified as confirmed todo or memory.
+The homepage shows quick capture, recent 7-day todo candidates from local inbox records, and past-week highlights. Mentioned dates are marked but not auto-classified as final tasks or memory.
 
-主页会显示快速记录、最近 7 天 To Do 候选，以及过去一周亮点。文本里提到的日期只会先标记，不会自动定性成 confirmed todo 或记忆。
+主页会显示快速记录、最近 7 天 To Do 候选，以及过去一周亮点。文本里提到的日期只会先标记，不会自动定性成正式 To Do 或记忆。
 
 Next TODOs / 下一步 TODO:
 

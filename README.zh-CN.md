@@ -66,9 +66,9 @@ curl.exe http://localhost:8080/dry-run
 http://localhost:8080/
 ```
 
-主页现在是主要本地使用界面：上面是快速记录，下面显示最近 7 天收进来的 To Do 候选，并显示过去一周亮点。这些视图来自 local inbox，还不是 confirmed memory。内容里出现的日期只会先作为 `mentioned_dates` 标记，之后再由你确认它是 todo 还是记忆。
+主页现在是主要本地使用界面：上面是快速记录，下面显示最近 7 天收进来的 To Do 候选，并显示过去一周亮点。这些视图来自 local inbox，还不是正式记忆。内容里出现的日期只会先作为 `mentioned_dates` 标记，之后再由你确认它是 todo 还是记忆。
 
-要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以直接粘贴一段文字、拖文件、选择文件、粘贴截图/照片。title、source、sensitivity 会自动补。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是 confirmed memory。
+要把信息发给 Echo，可以用 dashboard 里的 "Inbox Dropbox" 区域。你可以直接粘贴一段文字、拖文件、选择文件、粘贴截图/照片。title、source、sensitivity 会自动补。文本会写入 `runtime/inbox/text/`；文件和照片会写入 `runtime/inbox/files/`。状态保持为 `review_state=inbox`；这还不是正式记忆。
 
 文本 API 示例：
 
