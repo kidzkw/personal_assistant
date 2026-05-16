@@ -10,12 +10,17 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 RUNTIME_ROOT = Path(os.environ.get("ECHO_RUNTIME_ROOT", Path(__file__).resolve().parents[1])).resolve()
 INBOX_TEXT_ROOT = RUNTIME_ROOT / "inbox" / "text"
 INBOX_FILE_ROOT = RUNTIME_ROOT / "inbox" / "files"
+try:
+    LOCAL_TZ = ZoneInfo(os.environ.get("ECHO_TIMEZONE", "America/New_York"))
+except ZoneInfoNotFoundError:
+    LOCAL_TZ = timezone.utc
 sys.path.insert(0, str(RUNTIME_ROOT))
 
 from lib.dry_run_validator import DryRunValidationError, validate_dry_run  # noqa: E402
@@ -27,6 +32,10 @@ def _json_bytes(payload: dict) -> bytes:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _now_local() -> datetime:
+    return datetime.now(LOCAL_TZ).replace(microsecond=0)
 
 
 def _make_inbox_id() -> str:
@@ -46,6 +55,41 @@ def _safe_filename(filename: str) -> str:
     return name[:120] or "pasted-file"
 
 
+def _infer_text_dates(text: str, reference_day: date) -> list[dict]:
+    patterns = [
+        re.compile(r"(?P<year>20\d{2})[/-](?P<month>\d{1,2})[/-](?P<day>\d{1,2})"),
+        re.compile(r"(?P<year>20\d{2})年(?P<month>\d{1,2})月(?P<day>\d{1,2})(?:日|号)?"),
+        re.compile(r"(?P<month>\d{1,2})月(?P<day>\d{1,2})(?:日|号)?"),
+        re.compile(r"(?P<month>\d{1,2})[/-](?P<day>\d{1,2})(?:日|号)?"),
+    ]
+    inferred = []
+    seen_dates = set()
+    recurrence = "yearly" if re.search(r"生日|birthday", text, re.IGNORECASE) else None
+
+    for pattern in patterns:
+        for match in pattern.finditer(text):
+            year = int(match.groupdict().get("year") or reference_day.year)
+            month = int(match.group("month"))
+            day = int(match.group("day"))
+            try:
+                parsed = date(year, month, day)
+            except ValueError:
+                continue
+            if parsed.isoformat() in seen_dates:
+                continue
+            seen_dates.add(parsed.isoformat())
+            item = {
+                "date": parsed.isoformat(),
+                "source_text": match.group(0),
+                "date_role": "mentioned_date",
+            }
+            if recurrence:
+                item["recurrence"] = recurrence
+            inferred.append(item)
+
+    return inferred
+
+
 def _write_text_inbox_item(payload: dict) -> dict:
     text = str(payload.get("text", "")).strip()
     if not text:
@@ -57,16 +101,26 @@ def _write_text_inbox_item(payload: dict) -> dict:
     source_type = str(payload.get("source_type", "manual_note")).strip() or "manual_note"
     title = str(payload.get("title", "")).strip()
     auto_title = text.splitlines()[0][:80] if text.splitlines() else text[:80]
+    captured_at = _now_iso()
+    local_now = _now_local()
+    mentioned_dates = _infer_text_dates(text, local_now.date())
 
     inbox_id = _make_inbox_id()
     item = {
         "inbox_item": {
             "inbox_id": inbox_id,
-            "created_at": _now_iso(),
+            "created_at": captured_at,
+            "captured_at": captured_at,
+            "captured_local_date": local_now.date().isoformat(),
             "source_type": source_type,
             "input_type": "text",
             "title": title or auto_title or None,
             "text": text,
+            "mentioned_dates": mentioned_dates,
+            "classification_state": "needs_classification",
+            "candidate_types": ["todo", "memory"] if mentioned_dates else ["memory"],
+            "display_date": local_now.date().isoformat(),
+            "display_date_source": "captured_at",
             "sensitivity": sensitivity,
             "sync_permission": "local_only",
             "review_state": "inbox",
@@ -108,6 +162,8 @@ def _write_file_inbox_item(payload: dict) -> dict:
     sensitivity = str(payload.get("sensitivity", "personal")).strip() or "personal"
     source_type = str(payload.get("source_type", "file_drop")).strip() or "file_drop"
     title = str(payload.get("title", "")).strip()
+    captured_at = _now_iso()
+    local_now = _now_local()
 
     inbox_id = _make_file_inbox_id()
     item_root = INBOX_FILE_ROOT / inbox_id
@@ -118,7 +174,9 @@ def _write_file_inbox_item(payload: dict) -> dict:
     meta = {
         "inbox_item": {
             "inbox_id": inbox_id,
-            "created_at": _now_iso(),
+            "created_at": captured_at,
+            "captured_at": captured_at,
+            "captured_local_date": local_now.date().isoformat(),
             "source_type": source_type,
             "input_type": "file",
             "title": title or filename,
@@ -127,6 +185,11 @@ def _write_file_inbox_item(payload: dict) -> dict:
             "content_type": content_type,
             "size_bytes": len(data),
             "file_ref": str(file_path.relative_to(RUNTIME_ROOT)),
+            "mentioned_dates": [],
+            "classification_state": "needs_classification",
+            "candidate_types": ["memory"],
+            "display_date": local_now.date().isoformat(),
+            "display_date_source": "captured_at",
             "sensitivity": sensitivity,
             "sync_permission": "local_only",
             "review_state": "inbox",
@@ -168,6 +231,12 @@ def _list_inbox_items(limit: int = 50) -> dict:
                         "sensitivity": item.get("sensitivity"),
                         "review_state": item.get("review_state"),
                         "processing_state": item.get("processing_state"),
+                        "mentioned_dates": item.get("mentioned_dates", []),
+                        "classification_state": item.get("classification_state", "needs_classification"),
+                        "candidate_types": item.get("candidate_types", []),
+                        "display_date": item.get("display_date"),
+                        "display_date_source": item.get("display_date_source"),
+                        "captured_local_date": item.get("captured_local_date"),
                         "preview": str(item.get("text", ""))[:160],
                         "path": str(path.relative_to(RUNTIME_ROOT)),
                     }
@@ -190,6 +259,12 @@ def _list_inbox_items(limit: int = 50) -> dict:
                         "sensitivity": item.get("sensitivity"),
                         "review_state": item.get("review_state"),
                         "processing_state": item.get("processing_state"),
+                        "mentioned_dates": item.get("mentioned_dates", []),
+                        "classification_state": item.get("classification_state", "needs_classification"),
+                        "candidate_types": item.get("candidate_types", []),
+                        "display_date": item.get("display_date"),
+                        "display_date_source": item.get("display_date_source"),
+                        "captured_local_date": item.get("captured_local_date"),
                         "preview": item.get("original_filename"),
                         "content_type": item.get("content_type"),
                         "size_bytes": item.get("size_bytes"),
@@ -215,14 +290,17 @@ def _parse_created_at(value: str | None) -> datetime | None:
 
 def _memory_summary() -> dict:
     items = _list_inbox_items(limit=500)["items"]
-    today = datetime.now(timezone.utc).date()
+    today = _now_local().date()
     parsed_items = []
 
     for item in items:
-        created_at = _parse_created_at(item.get("created_at"))
-        if created_at is None:
-            continue
-        parsed_items.append({**item, "date": created_at.date().isoformat()})
+        display_date = item.get("display_date") or item.get("captured_local_date")
+        if not display_date:
+            created_at = _parse_created_at(item.get("created_at"))
+            if created_at is None:
+                continue
+            display_date = created_at.astimezone(LOCAL_TZ).date().isoformat()
+        parsed_items.append({**item, "date": display_date})
 
     daily = []
     for offset in range(3):
@@ -628,7 +706,7 @@ def _home_html() -> bytes:
     <header>
       <div>
         <h1>Echo 个人记忆助理</h1>
-        <p class="lead">把文字、照片和文件先放进本地 inbox。Echo 会按天整理最近记录；确认前它们只是记忆草稿，不会进入长期真相层。</p>
+        <p class="lead">把文字、照片和文件先放进本地 inbox。Echo 会按收进来的日期整理；如果内容里提到日期，只先标记出来，等你确认它是 todo 还是记忆。</p>
       </div>
       <div class="status-pill">
         <strong id="service-status">Checking</strong>
@@ -642,7 +720,7 @@ def _home_html() -> bytes:
         <div id="dropbox" class="dropbox" tabindex="0">
           <div>
             <strong>直接粘贴文字，或拖入照片 / 文件</strong>
-            <p>不需要标题，也不用先分类。Echo 会自动补 metadata，并把它放到本地 inbox 等待 review。</p>
+            <p>不需要标题，也不用先分类。Echo 只负责先收下；日期、todo、记忆类型会在后续 review 里确认。</p>
             <div class="actions" style="justify-content: center;">
               <button class="primary" type="button" onclick="document.getElementById('file-input').click()">选择文件</button>
               <button type="button" onclick="sendTypedText()">保存文字</button>
@@ -776,7 +854,9 @@ def _home_html() -> bytes:
     function itemMeta(item) {
       const kind = item.input_type === "file" ? "文件" : "文字";
       const state = item.review_state || "inbox";
-      return `${kind} · ${state}`;
+      const mentioned = (item.mentioned_dates || []).map((entry) => entry.date).join(", ");
+      const dateHint = mentioned ? `提到日期 ${mentioned}` : "";
+      return [kind, state, dateHint].filter(Boolean).join(" · ");
     }
 
     function renderMemoryItem(item) {

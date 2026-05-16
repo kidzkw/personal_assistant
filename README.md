@@ -30,9 +30,9 @@ Browser dashboard / 浏览器面板:
 http://localhost:8080/
 ```
 
-The homepage shows quick capture, the last 3 days of local inbox records, and past-week highlights.
+The homepage shows quick capture, the last 3 captured days of local inbox records, and past-week highlights. Mentioned dates are marked but not auto-classified as todo or memory.
 
-主页会显示快速记录、最近 3 天的本地 inbox 记录，以及过去一周亮点。
+主页会显示快速记录、最近 3 天收进来的本地 inbox 记录，以及过去一周亮点。文本里提到的日期只会先标记，不会自动定性成 todo 或记忆。
 
 Next TODOs / 下一步 TODO:
 
